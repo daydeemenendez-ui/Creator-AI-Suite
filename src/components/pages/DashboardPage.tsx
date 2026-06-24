@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 
 const stats = [
   { label: "Análisis completados", value: "48", icon: BarChart2, change: "+12%", href: "/research" },
@@ -50,18 +50,22 @@ const initialProjects = [
 
 const projectColors = ["#FF0033", "#FF6B00", "#00C9FF", "#A855F7", "#10B981", "#F59E0B"];
 
-export function DashboardPage() {
+function NewProjectParamWatcher({ onTrigger }: { onTrigger: () => void }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [projects, setProjects] = useState(initialProjects);
-  const [showNewProject, setShowNewProject] = useState(false);
-
   useEffect(() => {
     if (searchParams.get("newProject") === "1") {
-      setShowNewProject(true);
+      onTrigger();
       router.replace("/");
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, onTrigger]);
+  return null;
+}
+
+export function DashboardPage() {
+  const router = useRouter();
+  const [projects, setProjects] = useState(initialProjects);
+  const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [selectedColor, setSelectedColor] = useState(projectColors[0]);
 
@@ -78,6 +82,9 @@ export function DashboardPage() {
 
   return (
     <>
+      <Suspense fallback={null}>
+        <NewProjectParamWatcher onTrigger={() => setShowNewProject(true)} />
+      </Suspense>
       <div className="p-6 space-y-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-start justify-between">
