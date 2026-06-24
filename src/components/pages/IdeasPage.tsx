@@ -15,9 +15,11 @@ import {
   Zap,
   Clock,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -103,8 +105,33 @@ export function IdeasPage() {
   const [activeTag, setActiveTag] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [starredIds, setStarredIds] = useState<Set<number>>(
+    () => new Set(ideas.filter((i) => i.starred).map((i) => i.id))
+  );
+  const [localIdeas, setLocalIdeas] = useState(ideas);
+  const [showNewIdea, setShowNewIdea] = useState(false);
+  const [newIdeaTitle, setNewIdeaTitle] = useState("");
+  const [newIdeaDesc, setNewIdeaDesc] = useState("");
 
-  const filtered = ideas.filter((idea) => {
+  function handleCreateIdea() {
+    if (!newIdeaTitle.trim()) return;
+    const newIdea = {
+      id: Date.now(),
+      title: newIdeaTitle.trim(),
+      description: newIdeaDesc.trim() || "Idea nueva — agrega una descripción.",
+      tags: ["YouTube"],
+      priority: "media" as const,
+      date: "ahora",
+      starred: false,
+      trending: false,
+    };
+    setLocalIdeas((prev) => [newIdea, ...prev]);
+    setNewIdeaTitle("");
+    setNewIdeaDesc("");
+    setShowNewIdea(false);
+  }
+
+  const filtered = localIdeas.filter((idea) => {
     const matchesTag = activeTag === "Todos" || idea.tags.includes(activeTag);
     const matchesSearch =
       !searchQuery ||
@@ -123,7 +150,7 @@ export function IdeasPage() {
           </h1>
           <p className="text-[#888] text-sm mt-0.5">{ideas.length} ideas guardadas</p>
         </div>
-        <Button className="bg-[#FF0033] hover:bg-[#CC0029] text-white gap-2 shadow-lg shadow-red-950/30">
+        <Button onClick={() => setShowNewIdea(true)} className="bg-[#FF0033] hover:bg-[#CC0029] text-white gap-2 shadow-lg shadow-red-950/30">
           <Plus className="w-4 h-4" />
           Nueva idea
         </Button>
@@ -193,11 +220,20 @@ export function IdeasPage() {
               </div>
               <div className="flex items-center gap-1">
                 <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setStarredIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(idea.id)) next.delete(idea.id);
+                      else next.add(idea.id);
+                      return next;
+                    });
+                  }}
                   className={`transition-colors ${
-                    idea.starred ? "text-yellow-400" : "text-[#555] hover:text-yellow-400"
+                    starredIds.has(idea.id) ? "text-yellow-400" : "text-[#555] hover:text-yellow-400"
                   }`}
                 >
-                  <Star className="w-3.5 h-3.5" fill={idea.starred ? "currentColor" : "none"} />
+                  <Star className="w-3.5 h-3.5" fill={starredIds.has(idea.id) ? "currentColor" : "none"} />
                 </button>
                 <DropdownMenu>
                   <DropdownMenuTrigger className="text-[#555] hover:text-white transition-colors p-0.5 outline-none cursor-pointer">
@@ -285,7 +321,10 @@ export function IdeasPage() {
         ))}
 
         {/* Add new idea card */}
-        <Card className="bg-[#131313] border-[#2A2A2A] border-dashed p-5 hover:border-[#FF0033]/30 hover:bg-[#FF0033]/3 transition-all group cursor-pointer flex flex-col items-center justify-center min-h-[180px]">
+        <Card
+          onClick={() => setShowNewIdea(true)}
+          className="bg-[#131313] border-[#2A2A2A] border-dashed p-5 hover:border-[#FF0033]/30 hover:bg-[#FF0033]/3 transition-all group cursor-pointer flex flex-col items-center justify-center min-h-[180px]"
+        >
           <div className="w-10 h-10 rounded-xl bg-[#FF0033]/10 flex items-center justify-center mb-3 group-hover:bg-[#FF0033]/20 transition-colors">
             <Plus className="w-5 h-5 text-[#FF0033]" />
           </div>
@@ -295,6 +334,69 @@ export function IdeasPage() {
           <p className="text-xs text-[#555] mt-1">Haz clic para agregar</p>
         </Card>
       </div>
+
+      {/* New Idea Modal */}
+      {showNewIdea && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowNewIdea(false)} />
+          <div className="relative bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Lightbulb className="w-5 h-5 text-[#FF0033]" />
+                Nueva idea
+              </h2>
+              <button onClick={() => setShowNewIdea(false)} className="text-[#666] hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-[#888] uppercase tracking-wider block mb-2">
+                  Título del video
+                </label>
+                <Input
+                  autoFocus
+                  value={newIdeaTitle}
+                  onChange={(e) => setNewIdeaTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCreateIdea()}
+                  placeholder="Ej: Cómo crecer en YouTube sin mostrar tu cara..."
+                  className="bg-[#111] border-[#2A2A2A] text-white placeholder:text-[#444] focus:border-[#FF0033]/50"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[#888] uppercase tracking-wider block mb-2">
+                  Descripción <span className="normal-case font-normal text-[#555]">(opcional)</span>
+                </label>
+                <Textarea
+                  value={newIdeaDesc}
+                  onChange={(e) => setNewIdeaDesc(e.target.value)}
+                  placeholder="Contexto, ángulo o estrategia para este video..."
+                  className="bg-[#111] border-[#2A2A2A] text-white placeholder:text-[#444] focus:border-[#FF0033]/50 resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="ghost"
+                onClick={() => setShowNewIdea(false)}
+                className="flex-1 border border-[#2A2A2A] text-[#888] hover:text-white hover:border-[#444]"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleCreateIdea}
+                disabled={!newIdeaTitle.trim()}
+                className="flex-1 bg-[#FF0033] hover:bg-[#CC0029] text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Guardar idea
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

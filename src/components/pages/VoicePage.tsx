@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Plus,
   Upload,
@@ -77,6 +77,12 @@ export function VoicePage() {
   const [text, setText] = useState(mockText);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGenerated, setIsGenerated] = useState(true); // Demo state
+
+  // Stable waveform heights — computed once to avoid hydration mismatch
+  const waveHeights = useMemo(
+    () => Array.from({ length: 80 }, (_, i) => 20 + Math.sin(i * 0.4) * 15 + ((i * 7919) % 10)),
+    []
+  );
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -305,12 +311,12 @@ export function VoicePage() {
               {/* Waveform visualization */}
               <div className="relative bg-[#131313] rounded-lg px-4 py-3 mb-3 overflow-hidden">
                 <div className="flex items-center gap-[2px] h-10">
-                  {Array.from({ length: 80 }).map((_, i) => (
+                  {waveHeights.map((h, i) => (
                     <div
                       key={i}
                       className="flex-1 rounded-sm bg-[#FF0033]/60"
                       style={{
-                        height: `${20 + Math.sin(i * 0.4) * 15 + Math.random() * 10}%`,
+                        height: `${h}%`,
                         opacity: i < 30 ? 1 : 0.3,
                       }}
                     />

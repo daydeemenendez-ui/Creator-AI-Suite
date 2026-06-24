@@ -68,6 +68,19 @@ const chatHistory = [
 export function ContentPage() {
   const [message, setMessage] = useState("");
   const [activeContent, setActiveContent] = useState("ideas");
+  const [messages, setMessages] = useState(chatHistory);
+
+  function handleSend() {
+    const text = message.trim();
+    if (!text) return;
+    const userMsg = { role: "user" as const, content: text };
+    const assistantMsg = {
+      role: "assistant" as const,
+      content: "Procesando tu solicitud con IA... (conecta OpenRouter para respuestas reales)",
+    };
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setMessage("");
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -148,7 +161,7 @@ export function ContentPage() {
           <TabsContent value="chat" className="flex-1 flex flex-col overflow-hidden m-0">
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {chatHistory.map((msg, i) => (
+              {messages.map((msg, i) => (
                 <div
                   key={i}
                   className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
@@ -212,7 +225,7 @@ export function ContentPage() {
               ].map((prompt) => (
                 <button
                   key={prompt}
-                  onClick={() => setMessage(prompt)}
+                  onClick={() => { setMessage(prompt); }}
                   className="flex-shrink-0 text-xs text-[#888] hover:text-white border border-[#2A2A2A] hover:border-[#FF0033]/40 rounded-full px-3 py-1.5 transition-all"
                 >
                   {prompt}
@@ -227,6 +240,7 @@ export function ContentPage() {
                   <Textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                     placeholder="Describe qué contenido necesitas generar..."
                     className="bg-[#1A1A1A] border-[#2A2A2A] text-white placeholder:text-[#444] text-sm resize-none min-h-[44px] max-h-32 focus:border-[#FF0033]/40 pr-12"
                     rows={1}
@@ -236,7 +250,9 @@ export function ContentPage() {
                   </button>
                 </div>
                 <Button
-                  className="bg-[#FF0033] hover:bg-[#CC0029] text-white h-11 w-11 p-0 flex-shrink-0 shadow-lg shadow-red-950/30"
+                  onClick={handleSend}
+                  disabled={!message.trim()}
+                  className="bg-[#FF0033] hover:bg-[#CC0029] text-white h-11 w-11 p-0 flex-shrink-0 shadow-lg shadow-red-950/30 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Send className="w-4 h-4" />
                 </Button>
