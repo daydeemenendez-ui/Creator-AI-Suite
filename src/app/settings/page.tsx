@@ -1,23 +1,12 @@
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
-import { StubPage } from "@/components/pages/StubPage";
-import { Settings } from "lucide-react";
+import { SettingsPage } from "@/components/pages/SettingsPage";
 
-export default function SettingsPage() {
+export default function Settings() {
   return (
     <AppShell>
-      <StubPage
-        title="Settings"
-        icon={Settings}
-        description="Configura tu cuenta, integraciones de API, preferencias de IA y opciones de exportación."
-        items={[
-          { label: "Cuenta", desc: "Perfil, plan, facturación" },
-          { label: "API Keys", desc: "OpenAI, ElevenLabs..." },
-          { label: "Preferencias IA", desc: "Modelos, idioma, tono" },
-          { label: "Exportación", desc: "Formatos y destinos" },
-        ]}
-      />
+      <SettingsPage />
     </AppShell>
   );
 }
