@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// PROJECT
+// ─────────────────────────────────────────────
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String   @default("#FF0033")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sources          Source[]
+  ideas            Idea[]
+  scripts          Script[]
+  audioGenerations AudioGeneration[]
+
+  @@map("projects")
+}
+
+// ─────────────────────────────────────────────
+// SOURCE  (YouTube URL or uploaded file)
+// ─────────────────────────────────────────────
+model Source {
+  id          String       @id @default(cuid())
+  projectId   String
+  type        SourceType
+  url         String?      // YouTube URL
+  fileUrl     String?      // Supabase Storage URL
+  fileName    String?
+  title       String?
+  channelName String?
+  duration    Int?         // seconds
+  viewCount   BigInt?
+  status      SourceStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  transcript Transcript?
+
+  @@map("sources")
+}
+
+enum SourceType {
+  YOUTUBE
+  UPLOAD_MP4
+  UPLOAD_MP3
+  UPLOAD_WAV
+}
+
+enum SourceStatus {
+  PENDING
+  PROCESSING
+  READY
+  ERROR
+}
+
+// ─────────────────────────────────────────────
+// TRANSCRIPT
+// REGLA CRÍTICA: originalText es INMUTABLE.
+// Nunca modificar, resumir, traducir ni reescribir.
+// Toda edición va exclusivamente en workspaceText.
+// ─────────────────────────────────────────────
+model Transcript {
+  id            String   @id @default(cuid())
+  sourceId      String   @unique
+  originalText  String   // INMUTABLE — solo lectura permanente
+  workspaceText String?  // Editable por el usuario
+  language      String?
+  wordCount     Int      @default(0)
+  durationMs    Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  source  Source          @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  outputs ContentOutput[]
+
+  @@map("transcripts")
+}
+
+// ─────────────────────────────────────────────
+// CONTENT OUTPUTS  (ideas, guiones, SEO, shorts)
+// ─────────────────────────────────────────────
+model ContentOutput {
+  id           String      @id @default(cuid())
+  transcriptId String
+  type         ContentType
+  title        String?
+  body         String
+  metadata     Json?
+  model        String?     // openrouter model used
+  promptTokens Int?
+  createdAt    DateTime    @default(now())
+
+  transcript Transcript @relation(fields: [transcriptId], references: [id], onDelete: Cascade)
+
+  @@map("content_outputs")
+}
+
+enum ContentType {
+  IDEA
+  SCRIPT
+  SHORTS_SCRIPT
+  SEO_PACK
+  EMAIL
+  POST
+}
+
+model Idea {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  tags        String[]
+  priority    String   @default("media")
+  starred     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("ideas")
+}
+
+model Script {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  body      String
+  wordCount Int      @default(0)
+  type      String   @default("SCRIPT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("scripts")
+}
+
+// ─────────────────────────────────────────────
+// VOICE STUDIO
+// ─────────────────────────────────────────────
+model VoiceProfile {
+  id             String      @id @default(cuid())
+  name           String
+  description    String?
+  miniMaxVoiceId String      @unique // returned by MiniMax clone API
+  sourceFileUrl  String?             // Supabase Storage — original audio
+  sampleCount    Int         @default(0)
+  status         VoiceStatus @default(PROCESSING)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  audioGenerations AudioGeneration[]
+
+  @@map("voice_profiles")
+}
+
+enum VoiceStatus {
+  PROCESSING
+  READY
+  ERROR
+}
+
+model AudioGeneration {
+  id           String      @id @default(cuid())
+  projectId    String?
+  voiceId      String
+  textInput    String
+  audioUrl     String?     // Supabase Storage URL — merged mp3
+  chunkCount   Int         @default(1)
+  durationMs   Int?
+  status       AudioStatus @default(PENDING)
+  errorMessage String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  voice   VoiceProfile @relation(fields: [voiceId], references: [id])
+  project Project?     @relation(fields: [projectId], references: [id])
+  chunks  AudioChunk[]
+
+  @@map("audio_generations")
+}
+
+enum AudioStatus {
+  PENDING
+  CHUNKING
+  GENERATING
+  MERGING
+  READY
+  ERROR
+}
+
+model AudioChunk {
+  id           String   @id @default(cuid())
+  generationId String
+  index        Int
+  text         String
+  audioUrl     String?
+  status       String   @default("PENDING")
+  createdAt    DateTime @default(now())
+
+  generation AudioGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@map("audio_chunks")
+}
