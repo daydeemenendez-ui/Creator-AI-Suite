@@ -3,7 +3,6 @@
 import { prisma } from "@/lib/prisma";
 import { chat } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
-import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 // ─────────────────────────────────────────────
@@ -68,7 +67,7 @@ export async function generateIdeas(formData: FormData) {
             type: "IDEA",
             title: idea.title as string,
             body: idea.description as string,
-            metadata: idea as Prisma.InputJsonValue,
+            metadata: idea as never,
             model: process.env.OPENROUTER_DEFAULT_MODEL,
           },
         })
@@ -139,7 +138,7 @@ export async function generateScript(formData: FormData) {
         type: "SCRIPT",
         title: data.title,
         body: fullBody,
-        metadata: data as Prisma.InputJsonValue,
+        metadata: data as never,
         model: process.env.OPENROUTER_DEFAULT_MODEL,
       },
     });
@@ -191,7 +190,7 @@ export async function generateShorts(formData: FormData) {
             type: "SHORTS_SCRIPT",
             title: s.title as string,
             body: s.script as string,
-            metadata: s as Prisma.InputJsonValue,
+            metadata: s as never,
             model: process.env.OPENROUTER_DEFAULT_MODEL,
           },
         })
@@ -233,7 +232,7 @@ export async function generateSEO(formData: FormData) {
         type: "SEO_PACK",
         title: `SEO Pack — ${title}`,
         body: JSON.stringify(data, null, 2),
-        metadata: data as Prisma.InputJsonValue,
+        metadata: data as never,
         model: process.env.OPENROUTER_DEFAULT_MODEL,
       },
     });
@@ -272,7 +271,7 @@ export async function generateEmail(formData: FormData) {
         type: "EMAIL",
         title: data.subject as string,
         body: data.body as string,
-        metadata: data as Prisma.InputJsonValue,
+        metadata: data as never,
         model: process.env.OPENROUTER_DEFAULT_MODEL,
       },
     });
