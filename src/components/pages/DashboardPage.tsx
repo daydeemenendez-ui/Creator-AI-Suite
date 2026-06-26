@@ -23,29 +23,29 @@ import { useState, useEffect, Suspense } from "react";
 
 const stats = [
   { label: "Análisis completados", value: "48", icon: BarChart2, change: "+12%", href: "/research" },
-  { label: "Contenido generado", value: "234", icon: FileText, change: "+28%", href: "/content" },
-  { label: "Voces clonadas", value: "6", icon: Mic, change: "+2", href: "/voice" },
-  { label: "Ideas guardadas", value: "91", icon: Zap, change: "+15%", href: "/ideas" },
+  { label: "Contenido generado",   value: "234", icon: FileText,  change: "+28%", href: "/content" },
+  { label: "Voces clonadas",       value: "6",   icon: Mic,       change: "+2",   href: "/voice" },
+  { label: "Ideas guardadas",      value: "91",  icon: Zap,       change: "+15%", href: "/ideas" },
 ];
 
 const recentActivity = [
-  { type: "research", title: "Análisis: '10 Tips para YouTubers'", time: "hace 2 horas", status: "completado", icon: Video, color: "#FF0033", href: "/research" },
-  { type: "content", title: "Guión generado: 'Cómo usar IA en 2025'", time: "hace 4 horas", status: "borrador", icon: FileText, color: "#FF6B00", href: "/content" },
-  { type: "voice", title: "Audio clonado: Voz Principal", time: "ayer", status: "listo", icon: Mic, color: "#00C9FF", href: "/voice" },
-  { type: "idea", title: "Idea: 'Tutorial React en 5 minutos'", time: "ayer", status: "pendiente", icon: Zap, color: "#A855F7", href: "/ideas" },
+  { type: "research", title: "Análisis: '10 Tips para YouTubers'", time: "hace 2 horas", status: "completado", icon: Video,    color: "#FF0033", href: "/research" },
+  { type: "content",  title: "Guión generado: 'Cómo usar IA en 2025'", time: "hace 4 horas", status: "borrador",    icon: FileText, color: "#FF6B00", href: "/content" },
+  { type: "voice",    title: "Audio clonado: Voz Principal",       time: "ayer",         status: "listo",       icon: Mic,      color: "#00C9FF", href: "/voice" },
+  { type: "idea",     title: "Idea: 'Tutorial React en 5 minutos'", time: "ayer",         status: "pendiente",   icon: Zap,      color: "#A855F7", href: "/ideas" },
 ];
 
 const quickAccess = [
-  { label: "Analizar video", href: "/research", icon: Video, desc: "URL de YouTube" },
-  { label: "Crear contenido", href: "/content", icon: FileText, desc: "Scripts & posts" },
-  { label: "Clonar voz", href: "/voice", icon: Mic, desc: "Síntesis de voz" },
-  { label: "Nueva idea", href: "/ideas", icon: Zap, desc: "Banco de ideas" },
+  { label: "Analizar video",  href: "/research", icon: Video,    desc: "URL de YouTube" },
+  { label: "Crear contenido", href: "/content",  icon: FileText, desc: "Scripts & posts" },
+  { label: "Clonar voz",      href: "/voice",    icon: Mic,      desc: "Síntesis de voz" },
+  { label: "Nueva idea",      href: "/ideas",    icon: Zap,      desc: "Banco de ideas" },
 ];
 
 const initialProjects = [
-  { name: "Canal Principal", videos: 12, status: "Activo", lastUpdate: "hoy", color: "#FF0033" },
-  { name: "Shorts Factory", videos: 8, status: "En proceso", lastUpdate: "ayer", color: "#FF6B00" },
-  { name: "Podcast Series", videos: 4, status: "Planeando", lastUpdate: "hace 3 días", color: "#00C9FF" },
+  { name: "Canal Principal", videos: 12, status: "Activo",     lastUpdate: "hoy",          color: "#FF0033" },
+  { name: "Shorts Factory",  videos: 8,  status: "En proceso", lastUpdate: "ayer",          color: "#FF6B00" },
+  { name: "Podcast Series",  videos: 4,  status: "Planeando",  lastUpdate: "hace 3 días",  color: "#00C9FF" },
 ];
 
 const projectColors = ["#FF0033", "#FF6B00", "#00C9FF", "#A855F7", "#10B981", "#F59E0B"];
@@ -85,16 +85,17 @@ export function DashboardPage() {
       <Suspense fallback={null}>
         <NewProjectParamWatcher onTrigger={() => setShowNewProject(true)} />
       </Suspense>
-      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+
+      <div className="p-7 space-y-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-            <p className="text-[#888] text-sm mt-0.5">Bienvenido de vuelta — aquí está tu resumen</p>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Dashboard</h1>
+            <p className="text-zinc-500 text-sm mt-1">Bienvenido de vuelta — aquí está tu resumen</p>
           </div>
           <Button
             onClick={() => setShowNewProject(true)}
-            className="bg-[#FF0033] hover:bg-[#CC0029] text-white gap-2 shadow-lg shadow-red-950/30 cursor-pointer"
+            className="bg-[#FF0033] hover:bg-[#e8002e] text-white gap-2 shadow-[0_0_16px_rgba(255,0,51,0.2)] hover:shadow-[0_0_24px_rgba(255,0,51,0.3)] transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Nuevo proyecto
@@ -109,19 +110,19 @@ export function DashboardPage() {
               <Card
                 key={stat.label}
                 onClick={() => router.push(stat.href)}
-                className="bg-[#171717] border-[#2A2A2A] p-4 hover:border-[#FF0033]/30 transition-colors group cursor-pointer"
+                className="bg-[#141414] border border-white/[0.08] p-5 hover:border-white/[0.14] hover:bg-[#181818] transition-all group cursor-pointer"
               >
                 <div className="flex items-start justify-between">
-                  <div className="w-9 h-9 rounded-lg bg-[#FF0033]/10 flex items-center justify-center group-hover:bg-[#FF0033]/20 transition-colors">
-                    <Icon style={{ width: 18, height: 18 }} className="text-[#FF0033]" />
+                  <div className="w-9 h-9 rounded-xl bg-[#FF0033]/10 flex items-center justify-center group-hover:bg-[#FF0033]/15 transition-colors">
+                    <Icon style={{ width: 17, height: 17 }} className="text-[#FF0033]" />
                   </div>
-                  <Badge className="text-[10px] bg-green-500/10 text-green-400 border-green-500/20 font-medium">
+                  <Badge className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-medium">
                     {stat.change}
                   </Badge>
                 </div>
-                <div className="mt-3">
-                  <p className="text-2xl font-bold text-white">{stat.value}</p>
-                  <p className="text-xs text-[#888] mt-0.5">{stat.label}</p>
+                <div className="mt-4">
+                  <p className="text-2xl font-bold text-white tracking-tight">{stat.value}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">{stat.label}</p>
                 </div>
               </Card>
             );
@@ -131,16 +132,16 @@ export function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Quick Access */}
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-[#888] uppercase tracking-wider">Acceso rápido</h2>
+            <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-widest">Acceso rápido</h2>
             <div className="grid grid-cols-2 gap-3">
               {quickAccess.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link key={item.href} href={item.href}>
-                    <Card className="bg-[#171717] border-[#2A2A2A] p-4 hover:border-[#FF0033]/40 hover:bg-[#FF0033]/5 transition-all cursor-pointer group h-full">
+                    <Card className="bg-[#141414] border border-white/[0.08] p-4 hover:border-white/[0.14] hover:bg-[#181818] transition-all cursor-pointer group h-full">
                       <Icon style={{ width: 20, height: 20 }} className="text-[#FF0033] mb-3" />
-                      <p className="text-sm font-semibold text-white">{item.label}</p>
-                      <p className="text-[11px] text-[#666] mt-0.5">{item.desc}</p>
+                      <p className="text-sm font-semibold text-white tracking-tight">{item.label}</p>
+                      <p className="text-[11px] text-zinc-600 mt-0.5">{item.desc}</p>
                     </Card>
                   </Link>
                 );
@@ -151,42 +152,48 @@ export function DashboardPage() {
           {/* Recent Activity */}
           <div className="lg:col-span-2 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[#888] uppercase tracking-wider">Actividad reciente</h2>
+              <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-widest">Actividad reciente</h2>
               <button
                 onClick={() => router.push("/research")}
-                className="text-xs text-[#FF0033] hover:text-[#CC0029] flex items-center gap-1 cursor-pointer"
+                className="text-xs text-[#FF0033] hover:text-[#e8002e] flex items-center gap-1 cursor-pointer transition-colors"
               >
                 Ver todo <ArrowRight className="w-3 h-3" />
               </button>
             </div>
-            <Card className="bg-[#171717] border-[#2A2A2A] divide-y divide-[#222]">
+            <Card className="bg-[#141414] border border-white/[0.08] divide-y divide-white/[0.05] overflow-hidden">
               {recentActivity.map((item, i) => {
                 const Icon = item.icon;
                 return (
                   <div
                     key={i}
                     onClick={() => router.push(item.href)}
-                    className="flex items-center gap-3 p-4 hover:bg-white/5 transition-colors cursor-pointer"
+                    className="flex items-center gap-3 p-4 hover:bg-white/[0.03] transition-colors cursor-pointer"
                   >
                     <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${item.color}15` }}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${item.color}12` }}
                     >
-                      <Icon style={{ color: item.color, width: 16, height: 16 }} className="w-4 h-4" />
+                      <Icon style={{ color: item.color, width: 15, height: 15 }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white font-medium truncate">{item.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Clock className="w-3 h-3 text-[#666]" />
-                        <span className="text-[11px] text-[#666]">{item.time}</span>
+                      <p className="text-sm text-zinc-200 font-medium truncate">{item.title}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Clock className="w-3 h-3 text-zinc-700" />
+                        <span className="text-[11px] text-zinc-600">{item.time}</span>
                       </div>
                     </div>
                     <Badge
                       className="text-[10px] capitalize flex-shrink-0"
                       style={{
-                        background: item.status === "completado" || item.status === "listo" ? "rgba(34,197,94,0.1)" : "rgba(255,255,255,0.05)",
-                        color: item.status === "completado" || item.status === "listo" ? "#22c55e" : "#888",
-                        borderColor: item.status === "completado" || item.status === "listo" ? "rgba(34,197,94,0.2)" : "#333",
+                        background: item.status === "completado" || item.status === "listo"
+                          ? "rgba(34,197,94,0.08)"
+                          : "rgba(255,255,255,0.04)",
+                        color: item.status === "completado" || item.status === "listo"
+                          ? "#4ade80"
+                          : "#71717a",
+                        borderColor: item.status === "completado" || item.status === "listo"
+                          ? "rgba(74,222,128,0.2)"
+                          : "rgba(255,255,255,0.08)",
                       }}
                     >
                       {item.status}
@@ -201,10 +208,10 @@ export function DashboardPage() {
         {/* Projects */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[#888] uppercase tracking-wider">Proyectos</h2>
+            <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-widest">Proyectos</h2>
             <button
               onClick={() => setShowNewProject(true)}
-              className="text-xs text-[#FF0033] hover:text-[#CC0029] flex items-center gap-1 cursor-pointer"
+              className="text-xs text-[#FF0033] hover:text-[#e8002e] flex items-center gap-1 cursor-pointer transition-colors"
             >
               Gestionar <ArrowRight className="w-3 h-3" />
             </button>
@@ -214,21 +221,28 @@ export function DashboardPage() {
               <Card
                 key={proj.name}
                 onClick={() => router.push("/research")}
-                className="bg-[#171717] border-[#2A2A2A] p-5 hover:border-[#333] transition-colors group cursor-pointer"
+                className="bg-[#141414] border border-white/[0.08] p-5 hover:border-white/[0.14] hover:bg-[#181818] transition-all group cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${proj.color}20` }}>
-                    <Play style={{ color: proj.color, width: 20, height: 20 }} />
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${proj.color}15` }}>
+                    <Play style={{ color: proj.color, width: 18, height: 18 }} />
                   </div>
-                  <Badge className="text-[10px]" style={{ background: `${proj.color}15`, color: proj.color, borderColor: `${proj.color}30` }}>
+                  <Badge
+                    className="text-[10px]"
+                    style={{
+                      background: `${proj.color}12`,
+                      color: proj.color,
+                      borderColor: `${proj.color}25`,
+                    }}
+                  >
                     {proj.status}
                   </Badge>
                 </div>
-                <h3 className="font-semibold text-white mb-1">{proj.name}</h3>
-                <p className="text-xs text-[#666]">{proj.videos} videos analizados</p>
-                <div className="mt-3 pt-3 border-t border-[#222] flex items-center justify-between">
-                  <span className="text-[11px] text-[#555]">Actualizado {proj.lastUpdate}</span>
-                  <TrendingUp className="w-3.5 h-3.5 text-[#555] group-hover:text-[#FF0033] transition-colors" />
+                <h3 className="font-semibold text-white mb-1 tracking-tight">{proj.name}</h3>
+                <p className="text-xs text-zinc-600">{proj.videos} videos analizados</p>
+                <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between">
+                  <span className="text-[11px] text-zinc-700">Actualizado {proj.lastUpdate}</span>
+                  <TrendingUp className="w-3.5 h-3.5 text-zinc-700 group-hover:text-[#FF0033] transition-colors" />
                 </div>
               </Card>
             ))}
@@ -236,12 +250,12 @@ export function DashboardPage() {
             {/* Add project card */}
             <Card
               onClick={() => setShowNewProject(true)}
-              className="bg-[#131313] border-[#2A2A2A] border-dashed p-5 hover:border-[#FF0033]/30 hover:bg-[#FF0033]/3 transition-all cursor-pointer group flex flex-col items-center justify-center min-h-[140px]"
+              className="bg-[#0f0f0f] border border-white/[0.06] border-dashed p-5 hover:border-[#FF0033]/25 hover:bg-[#FF0033]/[0.03] transition-all cursor-pointer group flex flex-col items-center justify-center min-h-[148px]"
             >
-              <div className="w-10 h-10 rounded-xl bg-[#FF0033]/10 flex items-center justify-center mb-3 group-hover:bg-[#FF0033]/20 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-[#FF0033]/10 flex items-center justify-center mb-3 group-hover:bg-[#FF0033]/15 transition-colors">
                 <Plus className="w-5 h-5 text-[#FF0033]" />
               </div>
-              <p className="text-sm font-semibold text-[#888] group-hover:text-white transition-colors">Nuevo proyecto</p>
+              <p className="text-sm font-semibold text-zinc-600 group-hover:text-zinc-300 transition-colors">Nuevo proyecto</p>
             </Card>
           </div>
         </div>
@@ -250,18 +264,21 @@ export function DashboardPage() {
       {/* New Project Modal */}
       {showNewProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowNewProject(false)} />
-          <div className="relative bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-white">Nuevo proyecto</h2>
-              <button onClick={() => setShowNewProject(false)} className="text-[#666] hover:text-white transition-colors">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowNewProject(false)} />
+          <div className="relative bg-[#161616] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4 shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-white tracking-tight">Nuevo proyecto</h2>
+              <button
+                onClick={() => setShowNewProject(false)}
+                className="text-zinc-600 hover:text-zinc-300 transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
-                <label className="text-xs font-semibold text-[#888] uppercase tracking-wider block mb-2">
+                <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-2">
                   Nombre del proyecto
                 </label>
                 <Input
@@ -270,12 +287,12 @@ export function DashboardPage() {
                   onChange={(e) => setNewProjectName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
                   placeholder="Ej: Canal Principal, Podcast 2025..."
-                  className="bg-[#111] border-[#2A2A2A] text-white placeholder:text-[#444] focus:border-[#FF0033]/50"
+                  className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 focus:border-[#FF0033]/40"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#888] uppercase tracking-wider block mb-2">
+                <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-2">
                   Color
                 </label>
                 <div className="flex items-center gap-2">
@@ -296,18 +313,18 @@ export function DashboardPage() {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-3 mt-7">
               <Button
                 variant="ghost"
                 onClick={() => setShowNewProject(false)}
-                className="flex-1 border border-[#2A2A2A] text-[#888] hover:text-white hover:border-[#444]"
+                className="flex-1 border border-white/10 text-zinc-500 hover:text-white hover:border-white/[0.18] transition-all"
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleCreateProject}
                 disabled={!newProjectName.trim()}
-                className="flex-1 bg-[#FF0033] hover:bg-[#CC0029] text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 bg-[#FF0033] hover:bg-[#e8002e] text-white shadow-[0_0_16px_rgba(255,0,51,0.2)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 Crear proyecto
               </Button>

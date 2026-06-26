@@ -62,7 +62,10 @@ export function PromptsPage() {
 
   const filtered = PROMPTS.filter((p) => {
     const matchesCat = activeCategory === "Todos" || p.category === activeCategory;
-    const matchesSearch = !search || p.title.toLowerCase().includes(search.toLowerCase()) || p.text.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch =
+      !search ||
+      p.title.toLowerCase().includes(search.toLowerCase()) ||
+      p.text.toLowerCase().includes(search.toLowerCase());
     return matchesCat && matchesSearch;
   });
 
@@ -82,17 +85,17 @@ export function PromptsPage() {
   }
 
   return (
-    <div className="p-6 space-y-5 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2 tracking-tight">
             <BookOpen className="w-6 h-6 text-[#FF0033]" />
             Prompt Library
           </h1>
-          <p className="text-[#888] text-sm mt-0.5">{PROMPTS.length} prompts optimizados para creadores</p>
+          <p className="text-zinc-500 text-sm mt-0.5">{PROMPTS.length} prompts optimizados para creadores</p>
         </div>
-        <Button className="bg-[#FF0033] hover:bg-[#CC0029] text-white gap-2 shadow-lg shadow-red-950/30">
+        <Button className="bg-[#FF0033] hover:bg-[#e8002e] text-white gap-2 shadow-[0_0_16px_rgba(255,0,51,0.2)] hover:shadow-[0_0_24px_rgba(255,0,51,0.3)] transition-all">
           <Plus className="w-4 h-4" />
           Nuevo prompt
         </Button>
@@ -101,12 +104,12 @@ export function PromptsPage() {
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#666]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar prompts..."
-            className="pl-9 bg-[#171717] border-[#2A2A2A] text-white placeholder:text-[#444] text-sm h-9 w-56 focus:border-[#FF0033]/50"
+            className="pl-9 bg-[#141414] border-white/10 text-white placeholder:text-zinc-700 text-sm h-9 w-56 focus:border-[#FF0033]/40"
           />
         </div>
         <div className="flex items-center gap-2 overflow-x-auto">
@@ -116,8 +119,8 @@ export function PromptsPage() {
               onClick={() => setActiveCategory(cat)}
               className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full border transition-all ${
                 activeCategory === cat
-                  ? "bg-[#FF0033]/15 border-[#FF0033]/40 text-white"
-                  : "border-[#2A2A2A] text-[#888] hover:text-white hover:border-[#444]"
+                  ? "bg-[#FF0033]/12 border-[#FF0033]/35 text-white"
+                  : "border-white/10 text-zinc-500 hover:text-zinc-200 hover:border-white/[0.18]"
               }`}
             >
               {cat}
@@ -129,36 +132,39 @@ export function PromptsPage() {
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filtered.map((prompt) => (
-          <Card key={prompt.id} className="bg-[#171717] border-[#2A2A2A] p-5 flex flex-col gap-3 hover:border-[#333] transition-colors group">
+          <Card
+            key={prompt.id}
+            className="bg-[#141414] border-white/[0.08] p-5 flex flex-col gap-3 hover:border-white/[0.14] hover:bg-[#181818] transition-all group"
+          >
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20">
-                  <Tag className="w-2.5 h-2.5 mr-1" />
-                  {prompt.category}
-                </Badge>
-              </div>
+              <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20">
+                <Tag className="w-2.5 h-2.5 mr-1" />
+                {prompt.category}
+              </Badge>
               <button
                 onClick={() => toggleStar(prompt.id)}
-                className={`transition-colors ${starredIds.has(prompt.id) ? "text-yellow-400" : "text-[#555] hover:text-yellow-400"}`}
+                className={`transition-colors ${
+                  starredIds.has(prompt.id) ? "text-yellow-400" : "text-zinc-700 hover:text-yellow-400"
+                }`}
               >
                 <Star className="w-4 h-4" fill={starredIds.has(prompt.id) ? "currentColor" : "none"} />
               </button>
             </div>
 
-            <h3 className="text-sm font-semibold text-white group-hover:text-[#FF0033] transition-colors">
+            <h3 className="text-sm font-semibold text-white group-hover:text-[#FF0033] transition-colors tracking-tight">
               {prompt.title}
             </h3>
 
-            <p className="text-xs text-[#777] leading-5 flex-1 font-mono bg-[#131313] rounded-lg p-3 border border-[#222]">
+            <p className="text-xs text-zinc-600 leading-5 flex-1 font-mono bg-[#0f0f0f] rounded-xl p-3 border border-white/[0.06]">
               {prompt.text}
             </p>
 
             <button
               onClick={() => handleCopy(prompt.id, prompt.text)}
-              className={`flex items-center justify-center gap-2 w-full py-2 rounded-lg text-xs border transition-all ${
+              className={`flex items-center justify-center gap-2 w-full py-2 rounded-xl text-xs border transition-all ${
                 copied === prompt.id
-                  ? "bg-green-500/10 border-green-500/30 text-green-400"
-                  : "border-[#2A2A2A] text-[#888] hover:text-white hover:border-[#FF0033]/30 hover:bg-[#FF0033]/5"
+                  ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                  : "border-white/10 text-zinc-600 hover:text-white hover:border-[#FF0033]/25 hover:bg-[#FF0033]/[0.04]"
               }`}
             >
               {copied === prompt.id ? (

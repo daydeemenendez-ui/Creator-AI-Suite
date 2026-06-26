@@ -11,9 +11,9 @@ type Message = { role: "user" | "assistant"; content: string };
 
 const MODELS = [
   { id: "claude-sonnet", label: "Claude Sonnet 4.6" },
-  { id: "claude-haiku", label: "Claude Haiku 4.5" },
-  { id: "gpt-4o", label: "GPT-4o" },
-  { id: "gpt-4o-mini", label: "GPT-4o mini" },
+  { id: "claude-haiku",  label: "Claude Haiku 4.5" },
+  { id: "gpt-4o",        label: "GPT-4o" },
+  { id: "gpt-4o-mini",   label: "GPT-4o mini" },
 ];
 
 const EXAMPLE_PROMPTS = [
@@ -43,33 +43,31 @@ export function PlaygroundPage() {
     setInput("");
   }
 
-  function handleClear() {
-    setMessages([]);
-  }
-
   return (
     <div className="flex h-full overflow-hidden">
       {/* Main chat */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <div className="border-b border-[#2A2A2A] px-6 py-3 flex items-center gap-3 bg-[#111111]/50">
+        <div className="border-b border-white/[0.07] px-6 py-3 flex items-center gap-3 bg-[#0d0d0d]/60">
           <div className="relative">
             <button
               onClick={() => setShowModelMenu((v) => !v)}
-              className="flex items-center gap-2 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-1.5 text-sm text-white hover:border-[#444] transition-colors"
+              className="flex items-center gap-2 bg-[#141414] border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white hover:border-white/[0.18] transition-all"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#FF0033]" />
               {model.label}
-              <ChevronDown className="w-3 h-3 text-[#666]" />
+              <ChevronDown className="w-3 h-3 text-zinc-600" />
             </button>
             {showModelMenu && (
-              <div className="absolute top-full mt-1 left-0 z-20 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl shadow-xl overflow-hidden w-48">
+              <div className="absolute top-full mt-1 left-0 z-20 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] overflow-hidden w-48">
                 {MODELS.map((m) => (
                   <button
                     key={m.id}
                     onClick={() => { setModel(m); setShowModelMenu(false); }}
                     className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                      model.id === m.id ? "bg-[#FF0033]/10 text-white" : "text-[#888] hover:bg-white/5 hover:text-white"
+                      model.id === m.id
+                        ? "bg-[#FF0033]/10 text-white"
+                        : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
                     }`}
                   >
                     {m.label}
@@ -86,10 +84,10 @@ export function PlaygroundPage() {
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => setShowSettings((v) => !v)}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-all ${
                 showSettings
-                  ? "bg-[#FF0033]/10 border-[#FF0033]/30 text-[#FF0033]"
-                  : "border-[#2A2A2A] text-[#888] hover:text-white hover:border-[#444]"
+                  ? "bg-[#FF0033]/10 border-[#FF0033]/25 text-[#FF0033]"
+                  : "border-white/10 text-zinc-500 hover:text-white hover:border-white/[0.18]"
               }`}
             >
               <Sliders className="w-3.5 h-3.5" />
@@ -97,8 +95,8 @@ export function PlaygroundPage() {
             </button>
             {messages.length > 0 && (
               <button
-                onClick={handleClear}
-                className="flex items-center gap-1.5 text-xs text-[#888] hover:text-red-400 border border-[#2A2A2A] hover:border-red-500/30 px-3 py-1.5 rounded-lg transition-colors"
+                onClick={() => setMessages([])}
+                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 border border-white/10 hover:border-red-500/25 px-3 py-1.5 rounded-xl transition-all"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Limpiar
@@ -115,15 +113,15 @@ export function PlaygroundPage() {
                 <Sparkles className="w-7 h-7 text-[#FF0033]" />
               </div>
               <div className="text-center">
-                <h2 className="text-lg font-bold text-white mb-1">AI Playground</h2>
-                <p className="text-sm text-[#666] max-w-xs">Chat libre sin estructura. Experimenta con prompts y modelos.</p>
+                <h2 className="text-lg font-bold text-white mb-1 tracking-tight">AI Playground</h2>
+                <p className="text-sm text-zinc-600 max-w-xs">Chat libre sin estructura. Experimenta con prompts y modelos.</p>
               </div>
               <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
                 {EXAMPLE_PROMPTS.map((p) => (
                   <button
                     key={p}
                     onClick={() => setInput(p)}
-                    className="text-left text-xs text-[#888] hover:text-white bg-[#171717] hover:bg-[#1E1E1E] border border-[#2A2A2A] hover:border-[#FF0033]/30 rounded-xl p-3 transition-all"
+                    className="text-left text-xs text-zinc-600 hover:text-zinc-200 bg-[#141414] hover:bg-[#181818] border border-white/[0.08] hover:border-[#FF0033]/25 rounded-xl p-3 transition-all"
                   >
                     {p}
                   </button>
@@ -134,18 +132,24 @@ export function PlaygroundPage() {
 
           {messages.map((msg, i) => (
             <div key={i} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-              <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${
-                msg.role === "assistant" ? "bg-[#FF0033]/15 border border-[#FF0033]/30" : "bg-[#1E1E1E] border border-[#333]"
-              }`}>
+              <div
+                className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${
+                  msg.role === "assistant"
+                    ? "bg-[#FF0033]/15 border border-[#FF0033]/25"
+                    : "bg-white/[0.06] border border-white/10"
+                }`}
+              >
                 {msg.role === "assistant"
                   ? <Bot className="w-4 h-4 text-[#FF0033]" />
-                  : <User className="w-4 h-4 text-[#888]" />}
+                  : <User className="w-4 h-4 text-zinc-500" />}
               </div>
-              <div className={`max-w-2xl rounded-2xl px-4 py-3 text-sm leading-6 ${
-                msg.role === "assistant"
-                  ? "bg-[#171717] border border-[#2A2A2A] text-[#E0E0E0] rounded-tl-sm"
-                  : "bg-[#FF0033]/10 border border-[#FF0033]/20 text-white rounded-tr-sm"
-              }`}>
+              <div
+                className={`max-w-2xl rounded-2xl px-4 py-3 text-sm leading-6 ${
+                  msg.role === "assistant"
+                    ? "bg-[#141414] border border-white/[0.08] text-zinc-200 rounded-tl-sm"
+                    : "bg-[#FF0033]/10 border border-[#FF0033]/20 text-white rounded-tr-sm"
+                }`}
+              >
                 {msg.content}
               </div>
             </div>
@@ -153,20 +157,22 @@ export function PlaygroundPage() {
         </div>
 
         {/* Input */}
-        <div className="p-4 border-t border-[#2A2A2A] bg-[#111111]/50">
+        <div className="p-4 border-t border-white/[0.07] bg-[#0d0d0d]/60">
           <div className="flex gap-3 items-end">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+              }}
               placeholder="Escribe tu prompt aquí... (Enter para enviar, Shift+Enter nueva línea)"
-              className="flex-1 bg-[#1A1A1A] border-[#2A2A2A] text-white placeholder:text-[#444] text-sm resize-none min-h-[44px] max-h-40 focus:border-[#FF0033]/40"
+              className="flex-1 bg-[#141414] border-white/10 text-white placeholder:text-zinc-700 text-sm resize-none min-h-[44px] max-h-40 focus:border-[#FF0033]/40"
               rows={1}
             />
             <Button
               onClick={handleSend}
               disabled={!input.trim()}
-              className="bg-[#FF0033] hover:bg-[#CC0029] text-white h-11 w-11 p-0 flex-shrink-0 shadow-lg shadow-red-950/30 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-[#FF0033] hover:bg-[#e8002e] text-white h-11 w-11 p-0 flex-shrink-0 shadow-[0_0_16px_rgba(255,0,51,0.2)] hover:shadow-[0_0_20px_rgba(255,0,51,0.3)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               <Send className="w-4 h-4" />
             </Button>
@@ -176,18 +182,18 @@ export function PlaygroundPage() {
 
       {/* Settings panel */}
       {showSettings && (
-        <div className="w-64 flex-shrink-0 border-l border-[#2A2A2A] bg-[#111111] p-5 space-y-6 overflow-y-auto">
+        <div className="w-64 flex-shrink-0 border-l border-white/[0.07] bg-[#0d0d0d] p-5 space-y-6 overflow-y-auto">
           <div>
-            <p className="text-xs font-semibold text-[#888] uppercase tracking-wider mb-3">Modelo</p>
+            <p className="text-xs font-semibold text-zinc-600 uppercase tracking-wider mb-3">Modelo</p>
             <div className="space-y-1.5">
               {MODELS.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => setModel(m)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                  className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-all ${
                     model.id === m.id
-                      ? "bg-[#FF0033]/10 text-white border border-[#FF0033]/30"
-                      : "text-[#888] hover:bg-white/5 hover:text-white border border-transparent"
+                      ? "bg-[#FF0033]/10 text-white border border-[#FF0033]/25"
+                      : "text-zinc-500 hover:bg-white/[0.04] hover:text-white border border-transparent"
                   }`}
                 >
                   {m.label}
@@ -198,7 +204,7 @@ export function PlaygroundPage() {
 
           <div>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-[#888] uppercase tracking-wider">Temperature</p>
+              <p className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">Temperature</p>
               <span className="text-xs font-mono text-[#FF0033]">{temperature.toFixed(1)}</span>
             </div>
             <input
@@ -210,14 +216,14 @@ export function PlaygroundPage() {
               onChange={(e) => setTemperature(parseFloat(e.target.value))}
               className="w-full accent-[#FF0033]"
             />
-            <div className="flex justify-between text-[10px] text-[#555] mt-1">
+            <div className="flex justify-between text-[10px] text-zinc-700 mt-1">
               <span>Preciso</span>
               <span>Creativo</span>
             </div>
           </div>
 
-          <Card className="bg-[#171717] border-[#2A2A2A] p-3">
-            <p className="text-[10px] text-[#555] leading-4">
+          <Card className="bg-[#141414] border-white/[0.08] p-3">
+            <p className="text-[10px] text-zinc-600 leading-4">
               Conecta tu API Key de OpenRouter en Settings para activar los modelos reales.
             </p>
           </Card>

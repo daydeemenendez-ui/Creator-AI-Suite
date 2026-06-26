@@ -40,35 +40,57 @@
   --radius-xl: calc(var(--radius) * 1.4);
 }
 
-/* Creator AI Suite - Dark Theme Overrides */
+/* ─── Creator AI Suite — Design Tokens ─────────────────────────────────────── */
 :root {
-  --background: #0D0D0D;
-  --foreground: #F0F0F0;
-  --card: #171717;
-  --card-foreground: #F0F0F0;
-  --popover: #1E1E1E;
-  --popover-foreground: #F0F0F0;
-  --primary: #FF0033;
-  --primary-foreground: #FFFFFF;
-  --secondary: #1E1E1E;
-  --secondary-foreground: #F0F0F0;
-  --muted: #1A1A1A;
-  --muted-foreground: #888888;
-  --accent: #FF0033;
-  --accent-foreground: #FFFFFF;
-  --destructive: #FF4444;
-  --border: #2A2A2A;
-  --input: #1E1E1E;
-  --ring: #FF0033;
-  --radius: 0.625rem;
-  --sidebar: #111111;
-  --sidebar-foreground: #F0F0F0;
-  --sidebar-primary: #FF0033;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1E1E1E;
-  --sidebar-accent-foreground: #F0F0F0;
-  --sidebar-border: #2A2A2A;
-  --sidebar-ring: #FF0033;
+  /* Surfaces — 4-level dark hierarchy */
+  --background:         #090909;    /* base canvas */
+  --surface-panel:      #0d0d0d;    /* sidebars, panels */
+  --surface-card:       #141414;    /* cards, content blocks */
+  --surface-elevated:   #1a1a1a;    /* dropdowns, modals, popovers */
+  --surface-input:      #161616;    /* form inputs, textareas */
+
+  /* Foregrounds */
+  --foreground:         #f4f4f5;    /* zinc-100 — primary text */
+  --foreground-muted:   #71717a;    /* zinc-500 — secondary text */
+  --foreground-subtle:  #52525b;    /* zinc-600 — placeholder/dim text */
+
+  /* Borders — semi-transparent for premium feel */
+  --border-subtle:      rgba(255,255,255,0.07);   /* default card/panel borders */
+  --border-default:     rgba(255,255,255,0.10);   /* interactive element borders */
+  --border-emphasis:    rgba(255,255,255,0.15);   /* hover states */
+
+  /* Brand accent */
+  --accent-primary:     #FF0033;
+  --accent-glow:        rgba(255,0,51,0.15);
+
+  /* Tailwind/shadcn token aliases */
+  --card:               #141414;
+  --card-foreground:    #f4f4f5;
+  --popover:            #1a1a1a;
+  --popover-foreground: #f4f4f5;
+  --primary:            #FF0033;
+  --primary-foreground: #ffffff;
+  --secondary:          #1a1a1a;
+  --secondary-foreground: #f4f4f5;
+  --muted:              #161616;
+  --muted-foreground:   #71717a;
+  --accent:             #FF0033;
+  --accent-foreground:  #ffffff;
+  --destructive:        #f87171;
+  --border:             rgba(255,255,255,0.09);
+  --input:              #161616;
+  --ring:               #FF0033;
+  --radius:             0.75rem;
+
+  /* Sidebar */
+  --sidebar:                    #0d0d0d;
+  --sidebar-foreground:         #f4f4f5;
+  --sidebar-primary:            #FF0033;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:             rgba(255,255,255,0.05);
+  --sidebar-accent-foreground:  #f4f4f5;
+  --sidebar-border:             rgba(255,255,255,0.07);
+  --sidebar-ring:               #FF0033;
 }
 
 @layer base {
@@ -81,13 +103,19 @@
   html {
     @apply font-sans;
   }
+  h1, h2, h3 {
+    letter-spacing: -0.015em;
+  }
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: #111; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+::-webkit-scrollbar         { width: 4px; height: 4px; }
+::-webkit-scrollbar-track   { background: transparent; }
+::-webkit-scrollbar-thumb   { background: rgba(255,255,255,0.1); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #FF0033; }
 
 /* Selection */
-::selection { background: rgba(255,0,51,0.25); color: #fff; }
+::selection { background: rgba(255,0,51,0.2); color: #fff; }
+
+/* Smooth transitions on interactive elements */
+a, button { transition-property: color, background-color, border-color, opacity, box-shadow; transition-duration: 150ms; }

@@ -98,13 +98,12 @@ const ideas = [
 const priorityColors: Record<string, string> = {
   alta: "#FF0033",
   media: "#F59E0B",
-  baja: "#888",
+  baja: "#71717a",
 };
 
 export function IdeasPage() {
   const [activeTag, setActiveTag] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
-  const [view, setView] = useState<"grid" | "list">("grid");
   const [starredIds, setStarredIds] = useState<Set<number>>(
     () => new Set(ideas.filter((i) => i.starred).map((i) => i.id))
   );
@@ -140,17 +139,20 @@ export function IdeasPage() {
   });
 
   return (
-    <div className="p-6 space-y-5 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2 tracking-tight">
             <Lightbulb className="w-6 h-6 text-[#FF0033]" />
             Banco de Ideas
           </h1>
-          <p className="text-[#888] text-sm mt-0.5">{ideas.length} ideas guardadas</p>
+          <p className="text-zinc-500 text-sm mt-0.5">{ideas.length} ideas guardadas</p>
         </div>
-        <Button onClick={() => setShowNewIdea(true)} className="bg-[#FF0033] hover:bg-[#CC0029] text-white gap-2 shadow-lg shadow-red-950/30">
+        <Button
+          onClick={() => setShowNewIdea(true)}
+          className="bg-[#FF0033] hover:bg-[#e8002e] text-white gap-2 shadow-[0_0_16px_rgba(255,0,51,0.2)] hover:shadow-[0_0_24px_rgba(255,0,51,0.3)] transition-all"
+        >
           <Plus className="w-4 h-4" />
           Nueva idea
         </Button>
@@ -159,12 +161,12 @@ export function IdeasPage() {
       {/* Filters bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#666]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar ideas..."
-            className="pl-9 bg-[#171717] border-[#2A2A2A] text-white placeholder:text-[#444] text-sm h-9 w-56 focus:border-[#FF0033]/50"
+            className="pl-9 bg-[#141414] border-white/10 text-white placeholder:text-zinc-700 text-sm h-9 w-56 focus:border-[#FF0033]/40"
           />
         </div>
 
@@ -175,8 +177,8 @@ export function IdeasPage() {
               onClick={() => setActiveTag(tag)}
               className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full border transition-all ${
                 activeTag === tag
-                  ? "bg-[#FF0033]/15 border-[#FF0033]/40 text-white"
-                  : "border-[#2A2A2A] text-[#888] hover:text-white hover:border-[#444]"
+                  ? "bg-[#FF0033]/12 border-[#FF0033]/35 text-white"
+                  : "border-white/10 text-zinc-500 hover:text-zinc-200 hover:border-white/[0.18]"
               }`}
             >
               {tag}
@@ -184,7 +186,7 @@ export function IdeasPage() {
           ))}
         </div>
 
-        <button className="ml-auto flex items-center gap-1.5 text-xs text-[#888] hover:text-white border border-[#2A2A2A] hover:border-[#444] rounded-lg px-3 py-1.5 transition-all">
+        <button className="ml-auto flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/10 hover:border-white/[0.18] rounded-xl px-3 py-1.5 transition-all">
           <Filter className="w-3 h-3" />
           Filtros
         </button>
@@ -195,7 +197,7 @@ export function IdeasPage() {
         {filtered.map((idea) => (
           <Card
             key={idea.id}
-            className="bg-[#171717] border-[#2A2A2A] p-5 hover:border-[#333] transition-all group cursor-pointer flex flex-col"
+            className="bg-[#141414] border-white/[0.08] p-5 hover:border-white/[0.14] hover:bg-[#181818] transition-all group cursor-pointer flex flex-col"
           >
             {/* Card header */}
             <div className="flex items-start justify-between mb-3">
@@ -211,10 +213,7 @@ export function IdeasPage() {
                   style={{ background: priorityColors[idea.priority] }}
                   title={`Prioridad ${idea.priority}`}
                 />
-                <span
-                  className="text-[10px] capitalize"
-                  style={{ color: priorityColors[idea.priority] }}
-                >
+                <span className="text-[10px] capitalize" style={{ color: priorityColors[idea.priority] }}>
                   {idea.priority}
                 </span>
               </div>
@@ -230,33 +229,33 @@ export function IdeasPage() {
                     });
                   }}
                   className={`transition-colors ${
-                    starredIds.has(idea.id) ? "text-yellow-400" : "text-[#555] hover:text-yellow-400"
+                    starredIds.has(idea.id) ? "text-yellow-400" : "text-zinc-700 hover:text-yellow-400"
                   }`}
                 >
                   <Star className="w-3.5 h-3.5" fill={starredIds.has(idea.id) ? "currentColor" : "none"} />
                 </button>
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="text-[#555] hover:text-white transition-colors p-0.5 outline-none cursor-pointer">
+                  <DropdownMenuTrigger className="text-zinc-700 hover:text-white transition-colors p-0.5 outline-none cursor-pointer">
                     <MoreHorizontal className="w-3.5 h-3.5" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
-                    className="w-44 bg-[#1A1A1A] border-[#2A2A2A] text-white"
+                    className="w-44 bg-[#1a1a1a] border-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
                   >
-                    <DropdownMenuItem className="text-sm hover:bg-white/5 gap-2 cursor-pointer">
+                    <DropdownMenuItem className="text-sm hover:bg-white/[0.05] gap-2 cursor-pointer">
                       <FileText className="w-3.5 h-3.5" />
                       Convertir a guión
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-sm hover:bg-white/5 gap-2 cursor-pointer">
+                    <DropdownMenuItem className="text-sm hover:bg-white/[0.05] gap-2 cursor-pointer">
                       <Zap className="w-3.5 h-3.5" />
                       Convertir a post
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-sm hover:bg-white/5 gap-2 cursor-pointer">
+                    <DropdownMenuItem className="text-sm hover:bg-white/[0.05] gap-2 cursor-pointer">
                       <Mail className="w-3.5 h-3.5" />
                       Convertir a email
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-[#2A2A2A]" />
-                    <DropdownMenuItem className="text-sm hover:bg-white/5 gap-2 cursor-pointer text-[#FF4444]">
+                    <DropdownMenuSeparator className="bg-white/[0.06]" />
+                    <DropdownMenuItem className="text-sm hover:bg-white/[0.05] gap-2 cursor-pointer text-red-400">
                       Eliminar
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -265,27 +264,27 @@ export function IdeasPage() {
             </div>
 
             {/* Title */}
-            <h3 className="text-sm font-semibold text-white leading-5 mb-2 group-hover:text-[#FF0033] transition-colors">
+            <h3 className="text-sm font-semibold text-white leading-5 mb-2 group-hover:text-[#FF0033] transition-colors tracking-tight">
               {idea.title}
             </h3>
 
             {/* Description */}
-            <p className="text-xs text-[#777] leading-5 flex-1">{idea.description}</p>
+            <p className="text-xs text-zinc-600 leading-5 flex-1">{idea.description}</p>
 
             {/* Footer */}
-            <div className="mt-4 pt-3 border-t border-[#222] flex items-center justify-between">
+            <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
                 {idea.tags.map((tag) => (
                   <Badge
                     key={tag}
-                    className="text-[10px] px-2 py-0 bg-[#1E1E1E] border-[#333] text-[#777]"
+                    className="text-[10px] px-2 py-0 bg-white/[0.04] border-white/10 text-zinc-600"
                   >
                     <Tag className="w-2 h-2 mr-1" />
                     {tag}
                   </Badge>
                 ))}
               </div>
-              <div className="flex items-center gap-1 text-[#555] flex-shrink-0 ml-2">
+              <div className="flex items-center gap-1 text-zinc-700 flex-shrink-0 ml-2">
                 <Clock className="w-3 h-3" />
                 <span className="text-[10px]">{idea.date}</span>
               </div>
@@ -296,7 +295,7 @@ export function IdeasPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex-1 h-7 text-xs text-[#888] hover:text-white border border-[#2A2A2A] hover:border-[#FF0033]/30 gap-1"
+                className="flex-1 h-7 text-xs text-zinc-600 hover:text-white border border-white/[0.08] hover:border-[#FF0033]/25 gap-1"
               >
                 <FileText className="w-3 h-3" />
                 → Guión
@@ -304,7 +303,7 @@ export function IdeasPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex-1 h-7 text-xs text-[#888] hover:text-white border border-[#2A2A2A] hover:border-[#FF0033]/30 gap-1"
+                className="flex-1 h-7 text-xs text-zinc-600 hover:text-white border border-white/[0.08] hover:border-[#FF0033]/25 gap-1"
               >
                 <Zap className="w-3 h-3" />
                 → Post
@@ -312,7 +311,7 @@ export function IdeasPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 p-0 text-[#888] hover:text-white border border-[#2A2A2A] hover:border-[#FF0033]/30"
+                className="h-7 w-7 p-0 text-zinc-600 hover:text-white border border-white/[0.08] hover:border-[#FF0033]/25"
               >
                 <ArrowRight className="w-3 h-3" />
               </Button>
@@ -323,36 +322,36 @@ export function IdeasPage() {
         {/* Add new idea card */}
         <Card
           onClick={() => setShowNewIdea(true)}
-          className="bg-[#131313] border-[#2A2A2A] border-dashed p-5 hover:border-[#FF0033]/30 hover:bg-[#FF0033]/3 transition-all group cursor-pointer flex flex-col items-center justify-center min-h-[180px]"
+          className="bg-[#0f0f0f] border-white/[0.06] border-dashed p-5 hover:border-[#FF0033]/25 hover:bg-[#FF0033]/[0.02] transition-all group cursor-pointer flex flex-col items-center justify-center min-h-[180px]"
         >
-          <div className="w-10 h-10 rounded-xl bg-[#FF0033]/10 flex items-center justify-center mb-3 group-hover:bg-[#FF0033]/20 transition-colors">
+          <div className="w-10 h-10 rounded-xl bg-[#FF0033]/10 flex items-center justify-center mb-3 group-hover:bg-[#FF0033]/15 transition-colors">
             <Plus className="w-5 h-5 text-[#FF0033]" />
           </div>
-          <p className="text-sm font-semibold text-[#888] group-hover:text-white transition-colors">
+          <p className="text-sm font-semibold text-zinc-600 group-hover:text-zinc-200 transition-colors">
             Nueva idea
           </p>
-          <p className="text-xs text-[#555] mt-1">Haz clic para agregar</p>
+          <p className="text-xs text-zinc-700 mt-1">Haz clic para agregar</p>
         </Card>
       </div>
 
       {/* New Idea Modal */}
       {showNewIdea && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowNewIdea(false)} />
-          <div className="relative bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowNewIdea(false)} />
+          <div className="relative bg-[#161616] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4 shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2 tracking-tight">
                 <Lightbulb className="w-5 h-5 text-[#FF0033]" />
                 Nueva idea
               </h2>
-              <button onClick={() => setShowNewIdea(false)} className="text-[#666] hover:text-white transition-colors">
+              <button onClick={() => setShowNewIdea(false)} className="text-zinc-600 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-[#888] uppercase tracking-wider block mb-2">
+                <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-2">
                   Título del video
                 </label>
                 <Input
@@ -361,18 +360,18 @@ export function IdeasPage() {
                   onChange={(e) => setNewIdeaTitle(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreateIdea()}
                   placeholder="Ej: Cómo crecer en YouTube sin mostrar tu cara..."
-                  className="bg-[#111] border-[#2A2A2A] text-white placeholder:text-[#444] focus:border-[#FF0033]/50"
+                  className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 focus:border-[#FF0033]/40"
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-[#888] uppercase tracking-wider block mb-2">
-                  Descripción <span className="normal-case font-normal text-[#555]">(opcional)</span>
+                <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-2">
+                  Descripción <span className="normal-case font-normal text-zinc-700">(opcional)</span>
                 </label>
                 <Textarea
                   value={newIdeaDesc}
                   onChange={(e) => setNewIdeaDesc(e.target.value)}
                   placeholder="Contexto, ángulo o estrategia para este video..."
-                  className="bg-[#111] border-[#2A2A2A] text-white placeholder:text-[#444] focus:border-[#FF0033]/50 resize-none"
+                  className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 focus:border-[#FF0033]/40 resize-none"
                   rows={3}
                 />
               </div>
@@ -382,14 +381,14 @@ export function IdeasPage() {
               <Button
                 variant="ghost"
                 onClick={() => setShowNewIdea(false)}
-                className="flex-1 border border-[#2A2A2A] text-[#888] hover:text-white hover:border-[#444]"
+                className="flex-1 border border-white/10 text-zinc-500 hover:text-white hover:border-white/[0.18]"
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleCreateIdea}
                 disabled={!newIdeaTitle.trim()}
-                className="flex-1 bg-[#FF0033] hover:bg-[#CC0029] text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 bg-[#FF0033] hover:bg-[#e8002e] text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_16px_rgba(255,0,51,0.2)] transition-all"
               >
                 Guardar idea
               </Button>

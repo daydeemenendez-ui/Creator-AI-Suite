@@ -211,12 +211,12 @@ function MicRecorder() {
         ref={canvasRef}
         width={240}
         height={48}
-        className={`w-full rounded-lg bg-[#131313] transition-opacity ${
+        className={`w-full rounded-xl bg-[#0f0f0f] border border-white/[0.05] transition-opacity ${
           isRecording ? "opacity-100" : "opacity-40"
         }`}
       />
       <div className="flex items-center justify-between px-0.5">
-        <span className={`text-[10px] font-mono ${isRecording ? "text-[#FF0033]" : "text-[#555]"}`}>
+        <span className={`text-[10px] font-mono ${isRecording ? "text-[#FF0033]" : "text-zinc-700"}`}>
           {formatTime(elapsed)} / 0:30
         </span>
         {isRecording && (
@@ -226,10 +226,10 @@ function MicRecorder() {
       <Button
         size="sm"
         onClick={isRecording ? stopRecording : startRecording}
-        className={`w-full h-8 text-xs gap-1.5 ${
+        className={`w-full h-8 text-xs gap-1.5 transition-all ${
           isRecording
-            ? "bg-[#1A1A1A] border border-[#FF0033]/40 text-[#FF0033] hover:bg-[#FF0033]/10"
-            : "bg-[#FF0033] hover:bg-[#CC0029] text-white shadow-md shadow-red-950/30"
+            ? "bg-[#141414] border border-[#FF0033]/40 text-[#FF0033] hover:bg-[#FF0033]/10"
+            : "bg-[#FF0033] hover:bg-[#e8002e] text-white shadow-[0_0_12px_rgba(255,0,51,0.2)]"
         }`}
       >
         <Mic className="w-3.5 h-3.5" />
@@ -269,12 +269,12 @@ function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogPr
 
   return (
     <Dialog open={open} onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
-      <DialogContent className="bg-[#171717] border-[#2A2A2A] text-white sm:max-w-md">
+      <DialogContent className="bg-[#161616] border-white/10 text-white sm:max-w-md shadow-[0_16px_64px_rgba(0,0,0,0.8)]">
         <DialogHeader>
-          <DialogTitle className="text-white text-base">
+          <DialogTitle className="text-white text-base tracking-tight">
             Personalidad de voz
           </DialogTitle>
-          <p className="text-[11px] text-[#666] mt-0.5">
+          <p className="text-[11px] text-zinc-600 mt-0.5">
             {voice.name} — describe el personaje que usa esta voz
           </p>
         </DialogHeader>
@@ -284,19 +284,19 @@ function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogPr
           onChange={(e) => setValue(e.target.value)}
           rows={5}
           placeholder={`Ej: Spokesperson motivador, directo, con jerga de gimnasio en español latino. Habla en segunda persona, usa frases cortas con energía. Siempre cierra con una llamada a la acción relacionada con fitness.`}
-          className="bg-[#131313] border-[#2A2A2A] text-[#E0E0E0] text-sm leading-6 resize-none focus:border-[#FF0033]/40 placeholder:text-[#444]"
+          className="bg-[#111111] border-white/10 text-zinc-200 text-sm leading-6 resize-none focus:border-[#FF0033]/40 placeholder:text-zinc-700"
         />
 
-        <p className="text-[10px] text-[#555]">
+        <p className="text-[10px] text-zinc-600">
           Esta descripción guiará a la IA al reescribir o componer texto en esta voz.
         </p>
 
-        <DialogFooter className="border-[#2A2A2A] bg-[#111]">
+        <DialogFooter className="border-white/[0.07] bg-transparent">
           <Button
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="text-[#888] hover:text-white border border-[#2A2A2A] h-8 text-xs"
+            className="text-zinc-500 hover:text-white border border-white/10 h-8 text-xs"
           >
             Cancelar
           </Button>
@@ -304,7 +304,7 @@ function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogPr
             size="sm"
             onClick={handleSave}
             disabled={isSaving}
-            className="bg-[#FF0033] hover:bg-[#CC0029] text-white h-8 text-xs gap-1.5 shadow-md shadow-red-950/30"
+            className="bg-[#FF0033] hover:bg-[#e8002e] text-white h-8 text-xs gap-1.5 shadow-[0_0_16px_rgba(255,0,51,0.2)] transition-all"
           >
             {isSaving ? (
               <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -489,15 +489,15 @@ export function VoicePage() {
 
       <div className="flex h-full overflow-hidden">
         {/* ── Left panel ── */}
-        <div className="w-72 flex-shrink-0 border-r border-[#2A2A2A] bg-[#111111] flex flex-col">
-          <div className="p-5 border-b border-[#2A2A2A] flex items-center justify-between">
+        <div className="w-72 flex-shrink-0 border-r border-white/[0.07] bg-[#0d0d0d] flex flex-col">
+          <div className="p-5 border-b border-white/[0.07] flex items-center justify-between">
             <div>
-              <h2 className="font-bold text-white text-base">Voice Studio</h2>
-              <p className="text-xs text-[#666] mt-0.5">Clonación y síntesis de voz</p>
+              <h2 className="font-bold text-white text-base tracking-tight">Voice Studio</h2>
+              <p className="text-xs text-zinc-600 mt-0.5">Clonación y síntesis de voz</p>
             </div>
             <Button
               size="sm"
-              className="bg-[#FF0033] hover:bg-[#CC0029] text-white h-8 px-3 gap-1.5 shadow-md shadow-red-950/30"
+              className="bg-[#FF0033] hover:bg-[#e8002e] text-white h-8 px-3 gap-1.5 shadow-[0_0_12px_rgba(255,0,51,0.2)] transition-all"
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="text-xs">Crear voz</span>
@@ -505,12 +505,12 @@ export function VoicePage() {
           </div>
 
           {/* Capture tabs */}
-          <div className="p-4 border-b border-[#2A2A2A]">
-            <p className="text-[10px] font-semibold text-[#555] uppercase tracking-wider mb-3">
+          <div className="p-4 border-b border-white/[0.07]">
+            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-3">
               Captura de muestra
             </p>
             <Tabs defaultValue="upload" className="w-full">
-              <TabsList className="w-full h-8 bg-[#1A1A1A] border border-[#2A2A2A] p-0.5 mb-3 gap-0.5">
+              <TabsList className="w-full h-8 bg-[#141414] border border-white/10 p-0.5 mb-3 gap-0.5">
                 <TabsTrigger
                   value="upload"
                   className="flex-1 text-[10px] h-full gap-1 data-active:bg-[#FF0033]/15 data-active:text-[#FF0033] data-active:border-[#FF0033]/20"
@@ -541,15 +541,15 @@ export function VoicePage() {
                   className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
                     isDragging
                       ? "border-[#FF0033] bg-[#FF0033]/5"
-                      : "border-[#2A2A2A] hover:border-[#FF0033]/40"
+                      : "border-white/[0.08] hover:border-[#FF0033]/30 hover:bg-[#FF0033]/[0.02]"
                   }`}
                 >
-                  <Upload className="w-5 h-5 text-[#666] mx-auto mb-2" />
-                  <p className="text-xs text-[#888]">Sube audio de tu voz</p>
-                  <p className="text-[10px] text-[#555] mt-0.5">MP4, MP3, WAV · mín. 30s</p>
+                  <Upload className="w-5 h-5 text-zinc-600 mx-auto mb-2" />
+                  <p className="text-xs text-zinc-400">Sube audio de tu voz</p>
+                  <p className="text-[10px] text-zinc-600 mt-0.5">MP4, MP3, WAV · mín. 30s</p>
                   <div className="flex justify-center gap-1.5 mt-2">
                     {["MP4", "MP3", "WAV"].map((ext) => (
-                      <Badge key={ext} className="text-[9px] px-1 py-0 bg-[#1A1A1A] border-[#2A2A2A] text-[#666]">
+                      <Badge key={ext} className="text-[9px] px-1 py-0 bg-white/[0.04] border-white/[0.08] text-zinc-600">
                         {ext}
                       </Badge>
                     ))}
@@ -567,7 +567,7 @@ export function VoicePage() {
 
           {/* Voices list */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            <p className="text-[10px] font-semibold text-[#555] uppercase tracking-wider px-2 mb-1">
+            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider px-2 mb-1">
               Voces clonadas ({voices.length})
             </p>
             {voices.map((voice) => (
@@ -576,13 +576,13 @@ export function VoicePage() {
                 onClick={() => setSelectedVoice(voice.id)}
                 className={`w-full text-left p-3 rounded-xl border transition-all group/card ${
                   selectedVoice === voice.id
-                    ? "bg-[#FF0033]/10 border-[#FF0033]/40"
-                    : "bg-[#161616] border-[#222] hover:border-[#333]"
+                    ? "bg-[#FF0033]/10 border-[#FF0033]/30"
+                    : "bg-[#141414] border-white/[0.07] hover:border-white/[0.14]"
                 }`}
               >
                 <div className="flex items-start gap-2.5">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    selectedVoice === voice.id ? "bg-[#FF0033]/20" : "bg-[#1E1E1E]"
+                    selectedVoice === voice.id ? "bg-[#FF0033]/20" : "bg-[#1a1a1a]"
                   }`}>
                     <Mic
                       style={{ width: 16, height: 16, color: selectedVoice === voice.id ? "#FF0033" : "#666" }}
@@ -611,7 +611,7 @@ export function VoicePage() {
                       </button>
                     </div>
 
-                    <p className="text-[11px] text-[#666] truncate">{voice.description}</p>
+                    <p className="text-[11px] text-zinc-600 truncate">{voice.description}</p>
 
                     {/* Personality preview */}
                     {voice.personality ? (
@@ -619,15 +619,15 @@ export function VoicePage() {
                         {voice.personality}
                       </p>
                     ) : (
-                      <p className="text-[10px] text-[#444] mt-0.5">Sin personalidad definida</p>
+                      <p className="text-[10px] text-zinc-700 mt-0.5">Sin personalidad definida</p>
                     )}
 
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                      <span className="text-[10px] text-[#555]">{voice.samples} muestras</span>
-                      <span className="text-[#333]">·</span>
-                      <span className="text-[10px] text-[#555]">{voice.duration}</span>
+                      <span className="text-[10px] text-zinc-600">{voice.samples} muestras</span>
+                      <span className="text-zinc-800">·</span>
+                      <span className="text-[10px] text-zinc-600">{voice.duration}</span>
                       {/* Language badge */}
-                      <span className="ml-auto inline-flex items-center text-[9px] px-1.5 py-0.5 rounded-full bg-[#1A1A1A] border border-[#2A2A2A] text-[#777] font-medium tracking-wide">
+                      <span className="ml-auto inline-flex items-center text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.04] border border-white/10 text-zinc-500 font-medium tracking-wide">
                         {voice.language}
                       </span>
                       {/* Personality badge slot */}
@@ -648,14 +648,14 @@ export function VoicePage() {
         {/* ── Right panel ── */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Settings bar */}
-          <div className="border-b border-[#2A2A2A] px-6 py-3 bg-[#111111]/50 flex items-center gap-4">
+          <div className="border-b border-white/[0.07] px-6 py-3 bg-[#0d0d0d]/60 flex items-center gap-4">
             <div className="flex items-center gap-3">
-              <label className="text-xs text-[#888]">Voz seleccionada</label>
+              <label className="text-xs text-zinc-500">Voz seleccionada</label>
               <Select value={selectedVoice} onValueChange={(v) => v && setSelectedVoice(v)}>
-                <SelectTrigger className="w-44 h-8 bg-[#1A1A1A] border-[#2A2A2A] text-white text-sm">
+                <SelectTrigger className="w-44 h-8 bg-[#141414] border-white/10 text-white text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1A1A1A] border-[#2A2A2A] text-white">
+                <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
                   {voices.map((v) => (
                     <SelectItem key={v.id} value={v.id} className="text-sm hover:bg-white/5">
                       {v.name}
@@ -666,12 +666,12 @@ export function VoicePage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <label className="text-xs text-[#888]">Velocidad</label>
+              <label className="text-xs text-zinc-500">Velocidad</label>
               <Select defaultValue="1.0">
-                <SelectTrigger className="w-24 h-8 bg-[#1A1A1A] border-[#2A2A2A] text-white text-sm">
+                <SelectTrigger className="w-24 h-8 bg-[#141414] border-white/10 text-white text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1A1A1A] border-[#2A2A2A] text-white">
+                <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
                   {["0.75x", "1.0x", "1.25x", "1.5x"].map((s) => (
                     <SelectItem key={s} value={s.replace("x", "")} className="text-sm hover:bg-white/5">
                       {s}
@@ -682,12 +682,12 @@ export function VoicePage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <label className="text-xs text-[#888]">Estilo</label>
+              <label className="text-xs text-zinc-500">Estilo</label>
               <Select defaultValue="natural">
-                <SelectTrigger className="w-36 h-8 bg-[#1A1A1A] border-[#2A2A2A] text-white text-sm">
+                <SelectTrigger className="w-36 h-8 bg-[#141414] border-white/10 text-white text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1A1A1A] border-[#2A2A2A] text-white">
+                <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
                   {["Natural", "Enérgico", "Formal", "Casual"].map((s) => (
                     <SelectItem key={s} value={s.toLowerCase()} className="text-sm hover:bg-white/5">
                       {s}
@@ -697,7 +697,7 @@ export function VoicePage() {
               </Select>
             </div>
 
-            <button className="ml-auto text-[#888] hover:text-white transition-colors">
+            <button className="ml-auto text-zinc-500 hover:text-white transition-colors">
               <Settings2 className="w-4 h-4" />
             </button>
           </div>
@@ -707,8 +707,8 @@ export function VoicePage() {
             {/* Header row */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
-                <h3 className="text-sm font-semibold text-white">Texto a convertir en audio</h3>
-                <p className="text-xs text-[#666] mt-0.5">
+                <h3 className="text-sm font-semibold text-white tracking-tight">Texto a convertir en audio</h3>
+                <p className="text-xs text-zinc-600 mt-0.5">
                   {text.trim().split(/\s+/).length} palabras · ~
                   {Math.ceil(text.trim().split(/\s+/).length / 150)} min de audio
                 </p>
@@ -759,8 +759,8 @@ export function VoicePage() {
                   title={!hasPersonality ? "Define una personalidad para esta voz primero" : undefined}
                   className={`text-xs border gap-1.5 h-7 transition-colors ${
                     hasPersonality
-                      ? "text-[#888] border-[#2A2A2A] hover:text-white hover:border-[#444]"
-                      : "text-[#444] border-[#2A2A2A] cursor-not-allowed"
+                      ? "text-zinc-500 border-white/10 hover:text-white hover:border-white/20"
+                      : "text-zinc-700 border-white/[0.06] cursor-not-allowed"
                   }`}
                 >
                   {isComposing ? (
@@ -778,7 +778,7 @@ export function VoicePage() {
                     size="sm"
                     onClick={handleCompose}
                     disabled={isLlmBusy}
-                    className="text-xs text-[#888] hover:text-white border border-[#2A2A2A] hover:border-[#444] gap-1.5 h-7"
+                    className="text-xs text-zinc-500 hover:text-white border border-white/10 hover:border-white/20 gap-1.5 h-7"
                   >
                     <RefreshCw className="w-3 h-3" />
                     Generar otra
@@ -788,7 +788,7 @@ export function VoicePage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-[#888] hover:text-white border border-[#2A2A2A] gap-1.5 h-7"
+                  className="text-xs text-zinc-500 hover:text-white border border-white/10 gap-1.5 h-7"
                 >
                   <Wand2 className="w-3 h-3" />
                   Optimizar texto
@@ -798,10 +798,10 @@ export function VoicePage() {
 
             {/* No-personality notice */}
             {!hasPersonality && (
-              <div className="flex items-center gap-2 text-[11px] text-[#666] bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2">
-                <AlertCircle className="w-3.5 h-3.5 text-[#555] flex-shrink-0" />
+              <div className="flex items-center gap-2 text-[11px] text-zinc-600 bg-[#141414] border border-white/[0.08] rounded-lg px-3 py-2">
+                <AlertCircle className="w-3.5 h-3.5 text-zinc-600 flex-shrink-0" />
                 <span>
-                  <span className="text-[#888]">{activeVoice?.name}</span> no tiene personalidad definida.{" "}
+                  <span className="text-zinc-400">{activeVoice?.name}</span> no tiene personalidad definida.{" "}
                   <button
                     onClick={() => setEditingVoiceId(selectedVoice)}
                     className="text-[#FF0033]/80 hover:text-[#FF0033] underline underline-offset-2 transition-colors"
@@ -830,14 +830,14 @@ export function VoicePage() {
             <Textarea
               value={text}
               onChange={(e) => { setText(e.target.value); setPrevText(null); setLlmError(null); }}
-              className={`flex-1 bg-[#131313] border-[#2A2A2A] text-[#E0E0E0] text-sm leading-7 resize-none focus:border-[#FF0033]/40 transition-opacity ${
+              className={`flex-1 bg-[#111111] border-white/10 text-zinc-200 text-sm leading-7 resize-none focus:border-[#FF0033]/40 transition-opacity ${
                 isLlmBusy ? "opacity-50 pointer-events-none" : "opacity-100"
               }`}
               placeholder="Escribe o pega el texto que quieres convertir en audio con tu voz clonada..."
             />
 
             <Button
-              className="w-full bg-[#FF0033] hover:bg-[#CC0029] text-white gap-2 h-11 text-sm shadow-lg shadow-red-950/30"
+              className="w-full bg-[#FF0033] hover:bg-[#e8002e] text-white gap-2 h-11 text-sm shadow-[0_0_20px_rgba(255,0,51,0.2)] hover:shadow-[0_0_24px_rgba(255,0,51,0.3)] transition-all"
               onClick={handleGenerate}
               disabled={isGenerating}
             >
@@ -856,22 +856,22 @@ export function VoicePage() {
 
             {/* Audio player */}
             {isGenerated && (
-              <Card className="bg-[#171717] border-[#2A2A2A] p-4">
+              <Card className="bg-[#141414] border-white/[0.08] p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="text-sm font-semibold text-white">Audio generado</p>
-                    <p className="text-[11px] text-[#666]">
+                    <p className="text-sm font-semibold text-white tracking-tight">Audio generado</p>
+                    <p className="text-[11px] text-zinc-600">
                       {activeVoice?.name} · {relativeTime}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="w-7 h-7 rounded-lg hover:bg-white/5 flex items-center justify-center text-[#888] hover:text-white transition-colors">
+                    <button className="w-7 h-7 rounded-lg hover:bg-white/[0.04] flex items-center justify-center text-zinc-500 hover:text-white transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-xs text-[#888] hover:text-white border border-[#2A2A2A] gap-1.5 h-7"
+                      className="text-xs text-zinc-500 hover:text-white border border-white/10 gap-1.5 h-7"
                     >
                       <Download className="w-3 h-3" />
                       Descargar MP3
@@ -881,7 +881,7 @@ export function VoicePage() {
 
                 {/* Interactive waveform */}
                 <div
-                  className="relative bg-[#131313] rounded-lg px-4 py-3 mb-3 overflow-hidden cursor-pointer select-none"
+                  className="relative bg-[#0f0f0f] rounded-xl px-4 py-3 mb-3 overflow-hidden cursor-pointer select-none border border-white/[0.05]"
                   onClick={seekTo}
                 >
                   <div className="flex items-center gap-[2px] h-10">
@@ -917,7 +917,7 @@ export function VoicePage() {
                     )}
                   </button>
                   <div
-                    className="flex-1 h-1.5 bg-[#222] rounded-full overflow-hidden cursor-pointer"
+                    className="flex-1 h-1.5 bg-white/[0.08] rounded-full overflow-hidden cursor-pointer"
                     onClick={seekTo}
                   >
                     <div
@@ -925,15 +925,15 @@ export function VoicePage() {
                       style={{ width: `${playProgress}%` }}
                     />
                   </div>
-                  <span className="text-xs text-[#666] font-mono flex-shrink-0">
+                  <span className="text-xs text-zinc-600 font-mono flex-shrink-0">
                     {formatTime(playSeconds)} / {formatTime(totalSeconds)}
                   </span>
-                  <button className="text-[#666] hover:text-white transition-colors">
+                  <button className="text-zinc-600 hover:text-white transition-colors">
                     <Volume2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => { setIsPlaying(false); setPlaySeconds(0); }}
-                    className="text-[#666] hover:text-white transition-colors"
+                    className="text-zinc-600 hover:text-white transition-colors"
                   >
                     <Square className="w-3.5 h-3.5" />
                   </button>
