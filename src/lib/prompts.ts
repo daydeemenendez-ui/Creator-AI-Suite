@@ -120,6 +120,42 @@ ENTREGABLES (responde en JSON):
 }
 `,
 
+  VOICE_REWRITE: (text: string, personality: string) => `
+Eres un redactor especializado en contenido de audio para creadores hispanohablantes.
+
+PERSONALIDAD DE LA VOZ:
+${personality}
+
+TEXTO ORIGINAL A REESCRIBIR:
+${text}
+
+TAREA: Reescribe el texto preservando TODAS las ideas, datos e información, pero adaptando completamente el tono, estilo, ritmo y vocabulario a la personalidad de la voz descrita.
+
+REGLAS:
+- Mantén la longitud similar al original (±20%)
+- Adapta el vocabulario y registro al personaje — usa su jerga, sus frases características
+- No agregues ni quites información — solo adapta el estilo
+- Responde ÚNICAMENTE con el texto reescrito, sin explicaciones ni encabezados
+`,
+
+  VOICE_COMPOSE: (personality: string) => `
+Eres un copywriter experto en contenido de audio y marketing de infoproductos para el mercado hispanohablante.
+
+PERSONALIDAD DE LA VOZ:
+${personality}
+
+TAREA: Escribe entre 3 y 6 oraciones EN PERSONAJE que sirvan como gancho de apertura, frase de cierre o contenido de marketing.
+
+REQUISITOS:
+- Completamente en personaje según la personalidad descrita
+- En español latino, natural y conversacional al ritmo de esa voz
+- Orientado a captar atención o motivar una acción (compra, suscripción, seguimiento)
+- Incluye una llamada a la acción si el personaje lo haría naturalmente
+- Varía el resultado cada vez que se llama — no repitas estructuras
+
+Responde ÚNICAMENTE con el texto, sin explicaciones ni títulos.
+`,
+
   EMAIL: (transcript: string, channelName = "tu canal") => `
 Eres copywriter especializado en email marketing para creadores de contenido.
 

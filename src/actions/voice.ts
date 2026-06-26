@@ -227,6 +227,64 @@ export async function previewAudioChunks(formData: FormData) {
 }
 
 // ─────────────────────────────────────────────
+// UPDATE VOICE PERSONALITY
+// ─────────────────────────────────────────────
+
+export async function updateVoicePersonality(voiceProfileId: string, personality: string) {
+  try {
+    const profile = await prisma.voiceProfile.update({
+      where: { id: voiceProfileId },
+      data: { personality: personality.trim() || null },
+      select: { id: true, personality: true },
+    });
+    return { success: true, personality: profile.personality };
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
+// ─────────────────────────────────────────────
+// REWRITE TEXT WITH VOICE PERSONALITY
+// ─────────────────────────────────────────────
+
+export async function rewriteVoiceText(text: string, personality: string) {
+  if (!text.trim()) return { error: "text is required" };
+  if (!personality.trim()) return { error: "personality is required" };
+
+  try {
+    const { chat } = await import("@/lib/openrouter");
+    const { PROMPTS } = await import("@/lib/prompts");
+    const result = await chat(
+      [{ role: "user", content: PROMPTS.VOICE_REWRITE(text, personality) }],
+      { temperature: 0.75 }
+    );
+    return { success: true, text: result.trim() };
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
+// ─────────────────────────────────────────────
+// COMPOSE NEW TEXT WITH VOICE PERSONALITY
+// ─────────────────────────────────────────────
+
+export async function composeVoiceText(personality: string) {
+  if (!personality.trim()) return { error: "personality is required" };
+
+  try {
+    const { chat } = await import("@/lib/openrouter");
+    const { PROMPTS } = await import("@/lib/prompts");
+    const result = await chat(
+      [{ role: "user", content: PROMPTS.VOICE_COMPOSE(personality) }],
+      { temperature: 0.9 }
+    );
+    return { success: true, text: result.trim() };
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
+// ─────────────────────────────────────────────
 // LIST VOICE PROFILES
 // ─────────────────────────────────────────────
 

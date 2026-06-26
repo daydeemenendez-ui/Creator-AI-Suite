@@ -152,6 +152,7 @@ model VoiceProfile {
   id             String      @id @default(cuid())
   name           String
   description    String?
+  personality    String?             // Free-text voice character prompt for AI rewrite/compose
   miniMaxVoiceId String      @unique // returned by MiniMax clone API
   sourceFileUrl  String?             // Supabase Storage — original audio
   sampleCount    Int         @default(0)

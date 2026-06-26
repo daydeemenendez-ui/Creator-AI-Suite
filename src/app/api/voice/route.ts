@@ -4,6 +4,7 @@ import {
   listAudioGenerations,
   pollVoiceStatus,
   deleteVoiceProfile,
+  updateVoicePersonality,
 } from "@/actions/voice";
 
 export async function GET(req: NextRequest) {
@@ -26,6 +27,14 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ error: "Unknown type" }, { status: 400 });
+}
+
+export async function PATCH(req: NextRequest) {
+  const body = await req.json() as { id?: string; personality?: string };
+  const { id, personality } = body;
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  const result = await updateVoicePersonality(id, personality ?? "");
+  return NextResponse.json(result, { status: (result as { error?: string }).error ? 400 : 200 });
 }
 
 export async function DELETE(req: NextRequest) {
