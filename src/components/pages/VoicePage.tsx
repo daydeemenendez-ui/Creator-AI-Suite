@@ -41,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTtsModel, TTS_MODELS } from "@/hooks/useTtsModel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -320,6 +321,8 @@ function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogPr
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function VoicePage() {
+  const { model: ttsModel, setModel: setTtsModel } = useTtsModel();
+
   // Voices — start from mock data; personality lives in this state
   const [voices, setVoices] = useState<ClonedVoice[]>(INITIAL_VOICES);
   const [selectedVoice, setSelectedVoice] = useState("v1");
@@ -697,9 +700,42 @@ export function VoicePage() {
               </Select>
             </div>
 
-            <button className="ml-auto text-zinc-500 hover:text-white transition-colors">
-              <Settings2 className="w-4 h-4" />
-            </button>
+            <div className="ml-auto flex items-center gap-3">
+              <label className="text-xs text-zinc-500">Modelo TTS</label>
+              <Select
+                value={ttsModel.id}
+                onValueChange={(v) => {
+                  const m = TTS_MODELS.find((t) => t.id === v);
+                  if (m) setTtsModel(m);
+                }}
+              >
+                <SelectTrigger className="w-48 h-8 bg-[#141414] border-white/10 text-white text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
+                  {Object.entries(
+                    TTS_MODELS.reduce<Record<string, typeof TTS_MODELS>>((acc, m) => {
+                      (acc[m.provider] ??= []).push(m);
+                      return acc;
+                    }, {})
+                  ).map(([provider, models]) => (
+                    <div key={provider}>
+                      <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider px-2 pt-2 pb-1">
+                        {provider}
+                      </p>
+                      {models.map((m) => (
+                        <SelectItem key={m.id} value={m.id} className="text-sm hover:bg-white/5">
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </div>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button className="text-zinc-500 hover:text-white transition-colors">
+                <Settings2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Text editor */}

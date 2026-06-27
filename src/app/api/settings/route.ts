@@ -5,6 +5,7 @@ const KEY_MAP: Record<string, string> = {
   openrouter: "openrouter_api_key",
   minimax:    "minimax_api_key",
   supabase:   "supabase_service_key",
+  ttsApi:     "tts_api_key",
 };
 
 export async function POST(req: NextRequest) {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Key, Brain, Download, Save, Eye, EyeOff, Check } from "lucide-react";
+import { User, Key, Brain, Download, Save, Eye, EyeOff, Check, Mic, Sparkles } from "lucide-react";
+import { useGlobalModel } from "@/hooks/useGlobalModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,11 +23,12 @@ export function SettingsPage() {
   const [name, setName] = useState("Creator User");
   const [email, setEmail] = useState("creator@example.com");
   const [channel, setChannel] = useState("");
+  const { model: globalModel } = useGlobalModel();
   const [openrouter, setOpenrouter] = useState("");
   const [minimax, setMinimaxKey] = useState("");
   const [supabase, setSupabase] = useState("");
+  const [ttsApi, setTtsApi] = useState("");
   const [keyStatus, setKeyStatus] = useState<Record<string, string>>({});
-  const [defaultModel, setDefaultModel] = useState("claude-sonnet-4-6");
   const [language, setLanguage] = useState("es");
   const [tone, setTone] = useState("profesional");
   const [exportFormat, setExportFormat] = useState("markdown");
@@ -44,15 +46,11 @@ export function SettingsPage() {
     await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ openrouter, minimax, supabase }),
+      body: JSON.stringify({ openrouter, minimax, supabase, ttsApi }),
     });
     // Refresh status
     const status = await fetch("/api/settings").then((r) => r.json()) as Record<string, string>;
     setKeyStatus(status);
-    // Clear fields after saving (don't show keys in plaintext)
-    if (openrouter) setOpenrouter("");
-    if (minimax) setMinimaxKey("");
-    if (supabase) setSupabase("");
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -165,6 +163,42 @@ export function SettingsPage() {
                   </div>
                 </Card>
               ))}
+
+              {/* TTS API — Voice Studio only */}
+              <Card className="bg-[#141414] border-white/[0.08] p-5 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#FF0033]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Mic className="w-4 h-4 text-[#FF0033]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">TTS API (Voice Studio)</p>
+                    <p className="text-xs text-zinc-600 mt-0.5">
+                      API key para el proveedor TTS seleccionado en Voice Studio (ElevenLabs, OpenAI, Google, Azure, etc.)
+                    </p>
+                  </div>
+                </div>
+                <div className="relative">
+                  <Input
+                    type={showKeys["ttsApi"] ? "text" : "password"}
+                    value={ttsApi}
+                    onChange={(e) => setTtsApi(e.target.value)}
+                    placeholder="Pega aquí la API key de tu proveedor TTS..."
+                    className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-800 focus:border-[#FF0033]/40 pr-10 font-mono text-xs"
+                  />
+                  <button
+                    onClick={() => toggleKey("ttsApi")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-white transition-colors"
+                  >
+                    {showKeys["ttsApi"] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${keyStatus["ttsApi"] === "set" || ttsApi ? "bg-emerald-400" : "bg-zinc-700"}`} />
+                  <span className="text-[11px] text-zinc-600">
+                    {keyStatus["ttsApi"] === "set" && !ttsApi ? "Configurado ✓" : ttsApi ? "Listo para guardar" : "No configurado — solo usado en Voice Studio"}
+                  </span>
+                </div>
+              </Card>
             </>
           )}
 
@@ -177,34 +211,19 @@ export function SettingsPage() {
               </div>
               <Card className="bg-[#141414] border-white/[0.08] p-5 space-y-5">
                 <div>
-                  <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-3">Modelo por defecto</label>
-                  <div className="space-y-2">
-                    {[
-                      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", badge: "Recomendado" },
-                      { id: "claude-haiku-4-5",  label: "Claude Haiku 4.5",  badge: "Rápido" },
-                      { id: "gpt-4o",            label: "GPT-4o",            badge: null },
-                      { id: "gpt-4o-mini",       label: "GPT-4o mini",       badge: "Económico" },
-                    ].map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => setDefaultModel(m.id)}
-                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm transition-all ${
-                          defaultModel === m.id
-                            ? "bg-[#FF0033]/10 border-[#FF0033]/25 text-white"
-                            : "border-white/10 text-zinc-500 hover:border-white/[0.18] hover:text-white"
-                        }`}
-                      >
-                        <span>{m.label}</span>
-                        <div className="flex items-center gap-2">
-                          {m.badge && (
-                            <Badge className="text-[9px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20">
-                              {m.badge}
-                            </Badge>
-                          )}
-                          {defaultModel === m.id && <Check className="w-3.5 h-3.5 text-[#FF0033]" />}
-                        </div>
-                      </button>
-                    ))}
+                  <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-1">Modelo activo (global)</label>
+                  <p className="text-[11px] text-zinc-600 mb-3">
+                    Selecciona el modelo desde{" "}
+                    <span className="text-zinc-400 font-medium">Playground → selector de modelo</span>.
+                    El último modelo escogido se usa en toda la app.
+                  </p>
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#FF0033]/25 bg-[#FF0033]/[0.06]">
+                    <Sparkles className="w-4 h-4 text-[#FF0033] flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{globalModel.name}</p>
+                      <p className="text-[10px] text-zinc-500 truncate">{globalModel.id}</p>
+                    </div>
+                    <Check className="w-3.5 h-3.5 text-[#FF0033] flex-shrink-0" />
                   </div>
                 </div>
 
