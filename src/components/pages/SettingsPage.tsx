@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Key, Brain, Download, Save, Eye, EyeOff, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,12 +25,34 @@ export function SettingsPage() {
   const [openrouter, setOpenrouter] = useState("");
   const [minimax, setMinimaxKey] = useState("");
   const [supabase, setSupabase] = useState("");
+  const [keyStatus, setKeyStatus] = useState<Record<string, string>>({});
   const [defaultModel, setDefaultModel] = useState("claude-sonnet-4-6");
   const [language, setLanguage] = useState("es");
   const [tone, setTone] = useState("profesional");
   const [exportFormat, setExportFormat] = useState("markdown");
 
-  function handleSave() {
+  // Load saved key status on mount
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data: Record<string, string>) => setKeyStatus(data))
+      .catch(() => {});
+  }, []);
+
+  async function handleSave() {
+    // Save API keys via server route (stored as httpOnly cookies)
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ openrouter, minimax, supabase }),
+    });
+    // Refresh status
+    const status = await fetch("/api/settings").then((r) => r.json()) as Record<string, string>;
+    setKeyStatus(status);
+    // Clear fields after saving (don't show keys in plaintext)
+    if (openrouter) setOpenrouter("");
+    if (minimax) setMinimaxKey("");
+    if (supabase) setSupabase("");
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -111,9 +133,9 @@ export function SettingsPage() {
                 <p className="text-sm text-zinc-600">Conecta tus servicios externos. Las keys se guardan de forma segura.</p>
               </div>
               {[
-                { id: "openrouter", label: "OpenRouter",          desc: "Para generación de texto con múltiples modelos IA",   value: openrouter, set: setOpenrouter, placeholder: "sk-or-v1-..." },
-                { id: "minimax",    label: "MiniMax",              desc: "Para clonación de voz y síntesis TTS",                value: minimax,    set: setMinimaxKey, placeholder: "eyJ..." },
-                { id: "supabase",   label: "Supabase Service Role", desc: "Para almacenamiento de archivos de audio y video",   value: supabase,   set: setSupabase,   placeholder: "eyJhbGc..." },
+                { id: "openrouter", label: "OpenRouter",           desc: "Para generación de texto con múltiples modelos IA",  value: openrouter, set: setOpenrouter, placeholder: "sk-or-v1-..." },
+                { id: "minimax",    label: "MiniMax",               desc: "Para clonación de voz y síntesis TTS",               value: minimax,    set: setMinimaxKey, placeholder: "eyJ..." },
+                { id: "supabase",   label: "Supabase Service Role",  desc: "Para almacenamiento de archivos de audio y video",  value: supabase,   set: setSupabase,   placeholder: "eyJhbGc..." },
               ].map(({ id, label, desc, value, set, placeholder }) => (
                 <Card key={id} className="bg-[#141414] border-white/[0.08] p-5 space-y-3">
                   <div>
@@ -136,8 +158,10 @@ export function SettingsPage() {
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full ${value ? "bg-emerald-400" : "bg-zinc-700"}`} />
-                    <span className="text-[11px] text-zinc-600">{value ? "Configurado" : "No configurado"}</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${keyStatus[id] === "set" || value ? "bg-emerald-400" : "bg-zinc-700"}`} />
+                    <span className="text-[11px] text-zinc-600">
+                      {keyStatus[id] === "set" && !value ? "Configurado ✓" : value ? "Listo para guardar" : "No configurado"}
+                    </span>
                   </div>
                 </Card>
               ))}

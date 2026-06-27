@@ -1,6 +1,20 @@
 const BASE_URL = process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
 const DEFAULT_MODEL = process.env.OPENROUTER_DEFAULT_MODEL ?? "anthropic/claude-sonnet-4-6";
 
+async function resolveApiKey(): Promise<string> {
+  // 1. Env var (.env / Vercel dashboard) takes priority
+  if (process.env.OPENROUTER_API_KEY) return process.env.OPENROUTER_API_KEY;
+  // 2. Fall back to key saved via Settings UI → stored in DB
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const row = await prisma.appSettings.findUnique({ where: { key: "openrouter_api_key" } });
+    if (row?.value) return row.value;
+  } catch {
+    // DB unavailable — continue to error
+  }
+  throw new Error("No OpenRouter API key configured. Add it in Settings → API Keys.");
+}
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -16,10 +30,12 @@ export async function chat(
   messages: ChatMessage[],
   options: CompletionOptions = {}
 ): Promise<string> {
+  const apiKey = await resolveApiKey();
+
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
       "X-Title": "Creator AI Suite",
@@ -46,10 +62,12 @@ export async function* chatStream(
   messages: ChatMessage[],
   options: CompletionOptions = {}
 ): AsyncGenerator<string> {
+  const apiKey = await resolveApiKey();
+
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
       "X-Title": "Creator AI Suite",

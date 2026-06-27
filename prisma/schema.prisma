@@ -200,6 +200,17 @@ enum AudioStatus {
   ERROR
 }
 
+// ─────────────────────────────────────────────
+// APP SETTINGS  (API keys & preferences)
+// ─────────────────────────────────────────────
+model AppSettings {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
 model AudioChunk {
   id           String   @id @default(cuid())
   generationId String
