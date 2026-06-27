@@ -49,8 +49,19 @@ export async function chat(
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenRouter error ${res.status}: ${err}`);
+    const raw = await res.text();
+    let detail = raw;
+    try {
+      const parsed = JSON.parse(raw) as { error?: { message?: string } };
+      if (parsed.error?.message) detail = parsed.error.message;
+    } catch {}
+
+    if (res.status === 401) {
+      throw new Error(
+        "API key de OpenRouter inválida o no encontrada. Ve a Settings → API Keys y verifica tu key."
+      );
+    }
+    throw new Error(`OpenRouter error ${res.status}: ${detail}`);
   }
 
   const data = await res.json();
@@ -81,7 +92,14 @@ export async function* chatStream(
     }),
   });
 
-  if (!res.ok) throw new Error(`OpenRouter stream error ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error(
+        "API key de OpenRouter inválida o no encontrada. Ve a Settings → API Keys y verifica tu key."
+      );
+    }
+    throw new Error(`OpenRouter stream error ${res.status}`);
+  }
 
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
