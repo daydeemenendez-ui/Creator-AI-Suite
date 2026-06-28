@@ -57,9 +57,10 @@ export async function chat(
     } catch {}
 
     if (res.status === 401) {
-      throw new Error(
-        "API key de OpenRouter inválida o no encontrada. Ve a Settings → API Keys y verifica tu key."
-      );
+      throw new Error("API key de OpenRouter inválida. Ve a Settings → API Keys y verifica tu key.");
+    }
+    if (res.status === 429) {
+      throw new Error("Sin créditos en OpenRouter. Agrega saldo en openrouter.ai/credits e intenta de nuevo.");
     }
     throw new Error(`OpenRouter error ${res.status}: ${detail}`);
   }
