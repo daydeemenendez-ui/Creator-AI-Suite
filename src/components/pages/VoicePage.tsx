@@ -342,13 +342,14 @@ export function VoicePage() {
 
   // Audio player / generation
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isGenerated, setIsGenerated] = useState(true);
+  const [isGenerated, setIsGenerated] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSeconds, setPlaySeconds] = useState(0);
-  const [generatedAt] = useState(() => new Date(Date.now() - 2 * 60 * 1000));
-  const [relativeTime, setRelativeTime] = useState(() =>
-    formatRelativeTime(new Date(Date.now() - 2 * 60 * 1000))
-  );
+  const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
+  const [relativeTime, setRelativeTime] = useState("");
 
   const waveHeights = useMemo(
     () => Array.from({ length: 80 }, (_, i) => 20 + Math.sin(i * 0.4) * 15 + ((i * 7919) % 10)),
@@ -362,38 +363,63 @@ export function VoicePage() {
 
   const activeVoice = voices.find((v) => v.id === selectedVoice);
   const hasPersonality = Boolean(activeVoice?.personality?.trim());
-  const playProgress = (playSeconds / totalSeconds) * 100;
+  const audioDuration = audioRef.current?.duration ?? totalSeconds;
+  const playProgress = (playSeconds / Math.max(1, audioDuration)) * 100;
   const editingVoice = voices.find((v) => v.id === editingVoiceId);
 
   // Keep relative time fresh
   useEffect(() => {
+    if (!generatedAt) return;
+    setRelativeTime(formatRelativeTime(generatedAt));
     const id = setInterval(() => setRelativeTime(formatRelativeTime(generatedAt)), 30_000);
     return () => clearInterval(id);
   }, [generatedAt]);
 
-  // Simulated playback
+  // Sync audio element with play state
   useEffect(() => {
-    if (!isPlaying) return;
-    const id = setInterval(() => {
-      setPlaySeconds((s) => {
-        if (s + 1 >= totalSeconds) { setIsPlaying(false); return 0; }
-        return s + 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [isPlaying, totalSeconds]);
+    if (!audioRef.current) return;
+    if (isPlaying) audioRef.current.play().catch(() => setIsPlaying(false));
+    else audioRef.current.pause();
+  }, [isPlaying]);
 
-  const seekTo = (e: React.MouseEvent<HTMLElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    setPlaySeconds(Math.floor(ratio * totalSeconds));
-  };
+  // Cleanup audio URL on unmount
+  useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl); }, [audioUrl]);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setIsGenerating(true);
-    setPlaySeconds(0);
     setIsPlaying(false);
-    setTimeout(() => { setIsGenerating(false); setIsGenerated(true); }, 2000);
+    setPlaySeconds(0);
+    setGenerateError(null);
+
+    try {
+      const res = await fetch("/api/voice/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, modelId: ttsModel.id }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        throw new Error(data.error ?? `Error ${res.status}`);
+      }
+
+      const blob = await res.blob();
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      const newUrl = URL.createObjectURL(blob);
+      setAudioUrl(newUrl);
+
+      if (audioRef.current) {
+        audioRef.current.src = newUrl;
+        audioRef.current.load();
+      }
+
+      setIsGenerated(true);
+      setGeneratedAt(new Date());
+    } catch (err) {
+      setGenerateError(String(err));
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   // ── Personality save ────────────────────────────────────────────────────────
@@ -872,6 +898,15 @@ export function VoicePage() {
               placeholder="Escribe o pega el texto que quieres convertir en audio con tu voz clonada..."
             />
 
+            {/* Generate error */}
+            {generateError && (
+              <div className="flex items-center gap-2 text-[11px] text-red-400 bg-red-950/20 border border-red-900/40 rounded-lg px-3 py-2">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="flex-1">{generateError}</span>
+                <button onClick={() => setGenerateError(null)} className="text-red-400/60 hover:text-red-400">✕</button>
+              </div>
+            )}
+
             <Button
               className="w-full bg-[#FF0033] hover:bg-[#e8002e] text-white gap-2 h-11 text-sm shadow-[0_0_20px_rgba(255,0,51,0.2)] hover:shadow-[0_0_24px_rgba(255,0,51,0.3)] transition-all"
               onClick={handleGenerate}
@@ -891,34 +926,53 @@ export function VoicePage() {
             </Button>
 
             {/* Audio player */}
-            {isGenerated && (
+            {isGenerated && audioUrl && (
               <Card className="bg-[#141414] border-white/[0.08] p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <p className="text-sm font-semibold text-white tracking-tight">Audio generado</p>
                     <p className="text-[11px] text-zinc-600">
-                      {activeVoice?.name} · {relativeTime}
+                      {ttsModel.name} · {relativeTime}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="w-7 h-7 rounded-lg hover:bg-white/[0.04] flex items-center justify-center text-zinc-500 hover:text-white transition-colors">
+                    <button
+                      onClick={() => { setIsGenerated(false); setAudioUrl(null); setIsPlaying(false); }}
+                      className="w-7 h-7 rounded-lg hover:bg-white/[0.04] flex items-center justify-center text-zinc-500 hover:text-white transition-colors"
+                    >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-xs text-zinc-500 hover:text-white border border-white/10 gap-1.5 h-7"
+                    <a
+                      href={audioUrl}
+                      download="tts-output.mp3"
                     >
-                      <Download className="w-3 h-3" />
-                      Descargar MP3
-                    </Button>
+                      <Button size="sm" variant="ghost" className="text-xs text-zinc-500 hover:text-white border border-white/10 gap-1.5 h-7">
+                        <Download className="w-3 h-3" />
+                        Descargar MP3
+                      </Button>
+                    </a>
                   </div>
                 </div>
 
-                {/* Interactive waveform */}
+                {/* Native audio element (hidden) */}
+                <audio
+                  ref={audioRef}
+                  src={audioUrl}
+                  onTimeUpdate={(e) => setPlaySeconds(Math.floor((e.target as HTMLAudioElement).currentTime))}
+                  onEnded={() => { setIsPlaying(false); setPlaySeconds(0); }}
+                  className="hidden"
+                />
+
+                {/* Waveform visualization */}
                 <div
                   className="relative bg-[#0f0f0f] rounded-xl px-4 py-3 mb-3 overflow-hidden cursor-pointer select-none border border-white/[0.05]"
-                  onClick={seekTo}
+                  onClick={(e) => {
+                    if (!audioRef.current) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    audioRef.current.currentTime = ratio * (audioRef.current.duration || 0);
+                    setPlaySeconds(Math.floor(ratio * (audioRef.current.duration || 0)));
+                  }}
                 >
                   <div className="flex items-center gap-[2px] h-10">
                     {waveHeights.map((h, i) => {
@@ -952,14 +1006,15 @@ export function VoicePage() {
                       <Play className="w-4 h-4 text-white ml-0.5" />
                     )}
                   </button>
-                  <div
-                    className="flex-1 h-1.5 bg-white/[0.08] rounded-full overflow-hidden cursor-pointer"
-                    onClick={seekTo}
+                  <div className="flex-1 h-1.5 bg-white/[0.08] rounded-full overflow-hidden cursor-pointer"
+                    onClick={(e) => {
+                      if (!audioRef.current) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                      audioRef.current.currentTime = ratio * (audioRef.current.duration || 0);
+                    }}
                   >
-                    <div
-                      className="h-full bg-[#FF0033] rounded-full"
-                      style={{ width: `${playProgress}%` }}
-                    />
+                    <div className="h-full bg-[#FF0033] rounded-full" style={{ width: `${playProgress}%` }} />
                   </div>
                   <span className="text-xs text-zinc-600 font-mono flex-shrink-0">
                     {formatTime(playSeconds)} / {formatTime(totalSeconds)}
@@ -968,7 +1023,7 @@ export function VoicePage() {
                     <Volume2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => { setIsPlaying(false); setPlaySeconds(0); }}
+                    onClick={() => { setIsPlaying(false); setPlaySeconds(0); if (audioRef.current) audioRef.current.currentTime = 0; }}
                     className="text-zinc-600 hover:text-white transition-colors"
                   >
                     <Square className="w-3.5 h-3.5" />

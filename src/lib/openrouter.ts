@@ -60,7 +60,7 @@ export async function chat(
       throw new Error("API key de OpenRouter inválida. Ve a Settings → API Keys y verifica tu key.");
     }
     if (res.status === 429) {
-      throw new Error("Sin créditos en OpenRouter. Agrega saldo en openrouter.ai/credits e intenta de nuevo.");
+      throw new Error(`OpenRouter 429 (rate limit): ${detail}`);
     }
     throw new Error(`OpenRouter error ${res.status}: ${detail}`);
   }

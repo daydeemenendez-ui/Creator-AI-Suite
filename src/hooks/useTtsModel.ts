@@ -9,6 +9,8 @@ export interface TtsModel {
 }
 
 export const TTS_MODELS: TtsModel[] = [
+  { id: "alibaba/cosyvoice-v2",    name: "CosyVoice v2",       provider: "Alibaba" },
+  { id: "alibaba/cosyvoice-v1",    name: "CosyVoice v1",       provider: "Alibaba" },
   { id: "minimax/speech-02-hd",    name: "Speech-02 HD",       provider: "MiniMax" },
   { id: "minimax/speech-02-turbo", name: "Speech-02 Turbo",    provider: "MiniMax" },
   { id: "elevenlabs/multilingual", name: "Multilingual v2",    provider: "ElevenLabs" },
