@@ -343,7 +343,7 @@ export async function contentChat(formData: FormData) {
           title: extractTitle(response, type),
           body: response,
           model: process.env.OPENROUTER_DEFAULT_MODEL ?? "openrouter",
-          transcriptId: transcriptId ?? undefined,
+          ...(transcriptId ? { transcriptId } : {}),
         },
       });
       savedOutput = { id: output.id, type: output.type };
