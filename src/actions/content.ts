@@ -286,6 +286,27 @@ export async function generateEmail(formData: FormData) {
 // FREE CHAT (Content Studio chat panel)
 // ─────────────────────────────────────────────
 
+function detectOutputType(message: string): string | null {
+  const m = message.toLowerCase();
+  if (m.includes("short"))                                          return "SHORTS_SCRIPT";
+  if (m.includes("guión") || m.includes("guion") || m.includes("script") || m.includes("guiones")) return "SCRIPT";
+  if (m.includes("seo") || m.includes("descripci"))               return "SEO_PACK";
+  if (m.includes("email") || m.includes("correo") || m.includes("newsletter")) return "EMAIL";
+  if (m.includes("post") || m.includes("redes"))                   return "POST";
+  if (m.includes("idea") || m.includes("ideas"))                   return "IDEA";
+  return null;
+}
+
+function extractTitle(message: string, type: string): string {
+  const first = message.split("\n")[0].replace(/[#*`]/g, "").trim();
+  const truncated = first.length > 80 ? first.slice(0, 80) + "…" : first;
+  const labels: Record<string, string> = {
+    IDEA: "Idea", SCRIPT: "Guión", SHORTS_SCRIPT: "Short",
+    SEO_PACK: "SEO", EMAIL: "Email", POST: "Post",
+  };
+  return truncated || `${labels[type] ?? type} generado desde chat`;
+}
+
 export async function contentChat(formData: FormData) {
   const message = formData.get("message") as string;
   const transcriptId = formData.get("transcriptId") as string | null;
@@ -309,7 +330,25 @@ export async function contentChat(formData: FormData) {
     ];
 
     const response = await chat(messages, { temperature: 0.7 });
-    return { success: true, response };
+
+    // Auto-save to library if the request is for a specific content type
+    const type = detectOutputType(message);
+    let savedOutput: { id: string; type: string } | null = null;
+
+    if (type) {
+      const output = await prisma.contentOutput.create({
+        data: {
+          type,
+          title: extractTitle(response, type),
+          body: response,
+          model: process.env.OPENROUTER_DEFAULT_MODEL ?? "openrouter",
+          transcriptId: transcriptId ?? undefined,
+        },
+      });
+      savedOutput = { id: output.id, type: output.type };
+    }
+
+    return { success: true, response, savedOutput };
   } catch (err) {
     return { error: String(err) };
   }

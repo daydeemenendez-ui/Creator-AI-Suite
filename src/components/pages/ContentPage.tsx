@@ -131,13 +131,16 @@ export function ContentPage() {
       fd.append("history", JSON.stringify(history));
 
       const res = await fetch("/api/content", { method: "POST", body: fd });
-      const data = await res.json() as { response?: string; error?: string };
+      const data = await res.json() as { response?: string; error?: string; savedOutput?: { id: string; type: string } };
 
       const assistantMsg: ChatMessage = {
         role: "assistant",
         content: data.response ?? data.error ?? "Error al obtener respuesta.",
       };
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // Refresh library if content was auto-saved
+      if (data.savedOutput) fetchOutputs();
     } catch {
       setMessages((prev) => [
         ...prev,
