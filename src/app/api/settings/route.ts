@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 const KEY_MAP: Record<string, string> = {
-  openrouter: "openrouter_api_key",
-  minimax:    "minimax_api_key",
-  supabase:   "supabase_service_key",
-  ttsApi:     "tts_api_key",
+  openrouter:      "openrouter_api_key",
+  minimax:         "minimax_api_key",
+  supabase:        "supabase_service_key",
+  ttsApi:          "tts_api_key",
+  playgroundModel: "playground_model",
 };
 
 export async function POST(req: NextRequest) {
@@ -35,7 +36,13 @@ export async function GET() {
 
   const result: Record<string, string> = {};
   for (const [field, dbKey] of Object.entries(KEY_MAP)) {
-    result[field] = rows.find((r) => r.key === dbKey) ? "set" : "";
+    const row = rows.find((r) => r.key === dbKey);
+    // For playgroundModel return the actual value; for API keys just return "set"/"" mask
+    if (field === "playgroundModel") {
+      result[field] = row?.value ?? "";
+    } else {
+      result[field] = row ? "set" : "";
+    }
   }
 
   return NextResponse.json(result);

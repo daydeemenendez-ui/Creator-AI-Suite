@@ -13,39 +13,54 @@ const DEFAULT: GlobalModel = {
   name: "Claude Sonnet 4.6",
 };
 
-export function useGlobalModel() {
-  const [model, setModelState] = useState<GlobalModel>(() => {
-    if (typeof window === "undefined") return DEFAULT;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as GlobalModel) : DEFAULT;
-    } catch {
-      return DEFAULT;
-    }
-  });
+function readLocalCache(): GlobalModel {
+  if (typeof window === "undefined") return DEFAULT;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as GlobalModel) : DEFAULT;
+  } catch {
+    return DEFAULT;
+  }
+}
 
+function writeLocalCache(m: GlobalModel) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(m));
+  } catch {}
+}
+
+export function useGlobalModel() {
+  // Start with localStorage cache so UI shows something instantly
+  const [model, setModelState] = useState<GlobalModel>(readLocalCache);
+
+  // On mount, fetch the real value from Supabase and update if different
   useEffect(() => {
-    function onStorage(e: StorageEvent) {
-      if (e.key === STORAGE_KEY && e.newValue) {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data: Record<string, string>) => {
+        const raw = data.playgroundModel;
+        if (!raw) return;
         try {
-          setModelState(JSON.parse(e.newValue) as GlobalModel);
+          const saved = JSON.parse(raw) as GlobalModel;
+          if (saved.id && saved.id !== model.id) {
+            setModelState(saved);
+            writeLocalCache(saved);
+          }
         } catch {}
-      }
-    }
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function setModel(m: GlobalModel) {
     setModelState(m);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(m));
-    // Notify other tabs/components
-    window.dispatchEvent(
-      new StorageEvent("storage", {
-        key: STORAGE_KEY,
-        newValue: JSON.stringify(m),
-      })
-    );
+    writeLocalCache(m);
+    // Persist to Supabase
+    fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playgroundModel: JSON.stringify(m) }),
+    }).catch(() => {});
   }
 
   return { model, setModel };
