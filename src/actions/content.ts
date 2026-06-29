@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { ContentType } from "@prisma/client";
 import { chat } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
 import { z } from "zod";
@@ -286,18 +287,18 @@ export async function generateEmail(formData: FormData) {
 // FREE CHAT (Content Studio chat panel)
 // ─────────────────────────────────────────────
 
-function detectOutputType(message: string): string | null {
+function detectOutputType(message: string): ContentType | null {
   const m = message.toLowerCase();
-  if (m.includes("short"))                                          return "SHORTS_SCRIPT";
-  if (m.includes("guión") || m.includes("guion") || m.includes("script") || m.includes("guiones")) return "SCRIPT";
-  if (m.includes("seo") || m.includes("descripci"))               return "SEO_PACK";
-  if (m.includes("email") || m.includes("correo") || m.includes("newsletter")) return "EMAIL";
-  if (m.includes("post") || m.includes("redes"))                   return "POST";
-  if (m.includes("idea") || m.includes("ideas"))                   return "IDEA";
+  if (m.includes("short"))                                                             return ContentType.SHORTS_SCRIPT;
+  if (m.includes("guión") || m.includes("guion") || m.includes("script") || m.includes("guiones")) return ContentType.SCRIPT;
+  if (m.includes("seo") || m.includes("descripci"))                                   return ContentType.SEO_PACK;
+  if (m.includes("email") || m.includes("correo") || m.includes("newsletter"))        return ContentType.EMAIL;
+  if (m.includes("post") || m.includes("redes"))                                      return ContentType.POST;
+  if (m.includes("idea") || m.includes("ideas"))                                      return ContentType.IDEA;
   return null;
 }
 
-function extractTitle(message: string, type: string): string {
+function extractTitle(message: string, type: ContentType): string {
   const first = message.split("\n")[0].replace(/[#*`]/g, "").trim();
   const truncated = first.length > 80 ? first.slice(0, 80) + "…" : first;
   const labels: Record<string, string> = {
@@ -333,7 +334,7 @@ export async function contentChat(formData: FormData) {
 
     // Auto-save to library if the request is for a specific content type
     const type = detectOutputType(message);
-    let savedOutput: { id: string; type: string } | null = null;
+    let savedOutput: { id: string; type: ContentType } | null = null;
 
     if (type) {
       const output = await prisma.contentOutput.create({
