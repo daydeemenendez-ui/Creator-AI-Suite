@@ -72,7 +72,8 @@ export function IdeasPage() {
   const [newIdeaTitle, setNewIdeaTitle] = useState("");
   const [newIdeaDesc, setNewIdeaDesc] = useState("");
   const [saving, setSaving] = useState(false);
-  const [converting, setConverting] = useState<string | null>(null); // ideaId being converted
+  const [converting, setConverting] = useState<string | null>(null); // ideaId+type being converted
+  const [generated, setGenerated] = useState<Record<string, { guion?: string; post?: string }>>({});
   const [conversionResult, setConversionResult] = useState<{
     title: string;
     targetType: "guion" | "post";
@@ -147,6 +148,12 @@ export function IdeasPage() {
   }
 
   async function handleConvert(idea: Idea, targetType: "guion" | "post") {
+    // If already generated, just show the cached result
+    const cached = generated[idea.id]?.[targetType];
+    if (cached) {
+      setConversionResult({ title: idea.title, targetType, content: cached });
+      return;
+    }
     setConverting(idea.id + targetType);
     try {
       const formData = new FormData();
@@ -157,6 +164,10 @@ export function IdeasPage() {
       const res = await fetch("/api/ideas", { method: "POST", body: formData });
       const data = await res.json();
       if (data.success && data.content) {
+        setGenerated((prev) => ({
+          ...prev,
+          [idea.id]: { ...prev[idea.id], [targetType]: data.content },
+        }));
         setConversionResult({ title: idea.title, targetType, content: data.content });
       }
     } finally {
@@ -367,9 +378,13 @@ export function IdeasPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  disabled={!!converting}
+                  disabled={converting === idea.id + "guion"}
                   onClick={() => handleConvert(idea, "guion")}
-                  className="flex-1 h-7 text-xs text-zinc-600 hover:text-white border border-white/[0.08] hover:border-[#FF0033]/25 gap-1 disabled:opacity-50"
+                  className={`flex-1 h-7 text-xs border gap-1 transition-all disabled:opacity-50 ${
+                    generated[idea.id]?.guion
+                      ? "text-emerald-400 border-emerald-500/30 hover:border-emerald-400/50 hover:text-emerald-300 bg-emerald-500/5"
+                      : "text-zinc-600 hover:text-white border-white/[0.08] hover:border-[#FF0033]/25"
+                  }`}
                 >
                   {converting === idea.id + "guion" ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -381,9 +396,13 @@ export function IdeasPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  disabled={!!converting}
+                  disabled={converting === idea.id + "post"}
                   onClick={() => handleConvert(idea, "post")}
-                  className="flex-1 h-7 text-xs text-zinc-600 hover:text-white border border-white/[0.08] hover:border-[#FF0033]/25 gap-1 disabled:opacity-50"
+                  className={`flex-1 h-7 text-xs border gap-1 transition-all disabled:opacity-50 ${
+                    generated[idea.id]?.post
+                      ? "text-emerald-400 border-emerald-500/30 hover:border-emerald-400/50 hover:text-emerald-300 bg-emerald-500/5"
+                      : "text-zinc-600 hover:text-white border-white/[0.08] hover:border-[#FF0033]/25"
+                  }`}
                 >
                   {converting === idea.id + "post" ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
