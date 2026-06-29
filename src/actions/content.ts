@@ -364,7 +364,12 @@ export async function deleteOutput(id: string) {
 
 export async function saveOutput(type: ContentType, title: string, body: string) {
   const output = await prisma.contentOutput.create({
-    data: { type, title, body, model: process.env.OPENROUTER_DEFAULT_MODEL ?? "openrouter" },
+    data: {
+      type,
+      title,
+      body,
+      model: process.env.OPENROUTER_DEFAULT_MODEL ?? "openrouter",
+    } as Parameters<typeof prisma.contentOutput.create>[0]["data"],
   });
   return { success: true, output };
 }
