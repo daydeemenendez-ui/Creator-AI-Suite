@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { chat } from "@/lib/ai";
+import { chat } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
 import { z } from "zod";
 

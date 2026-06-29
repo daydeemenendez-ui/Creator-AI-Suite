@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chat } from "@/lib/ai";
+import { chat } from "@/lib/openrouter";
 
 export async function POST(req: NextRequest) {
   const { messages, model, temperature } = await req.json();
