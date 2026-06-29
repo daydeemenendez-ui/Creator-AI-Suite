@@ -80,7 +80,7 @@ function SaveDropdown({
   onSaved,
 }: {
   content: string;
-  onSaved: () => void;
+  onSaved: (type: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -107,7 +107,7 @@ function SaveDropdown({
     await fetch("/api/content", { method: "POST", body: fd });
     setSaving(false);
     setSaved(true);
-    onSaved();
+    onSaved(type);
     setTimeout(() => setSaved(false), 2000);
   }
 
@@ -156,6 +156,7 @@ function SaveDropdown({
 export function ContentPage() {
   const [message, setMessage]             = useState("");
   const [activeContent, setActiveContent] = useState("todos");
+  const [activeTab, setActiveTab]         = useState("chat");
   const [messages, setMessages]           = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [isSending, setIsSending]         = useState(false);
   const [outputs, setOutputs]             = useState<ContentOutput[]>([]);
@@ -163,6 +164,11 @@ export function ContentPage() {
   const [deletingId, setDeletingId]       = useState<string | null>(null);
   const [copiedIdx, setCopiedIdx]         = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  function goToSection(key: string) {
+    setActiveContent(key);
+    setActiveTab("library");
+  }
 
   // ── Fetch library ──────────────────────────────────────────────────────
 
@@ -286,9 +292,9 @@ export function ContentPage() {
           </p>
 
           <button
-            onClick={() => setActiveContent("todos")}
+            onClick={() => goToSection("todos")}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
-              activeContent === "todos"
+              activeContent === "todos" && activeTab === "library"
                 ? "bg-white/[0.06] border border-white/10"
                 : "border border-transparent hover:bg-white/[0.03]"
             }`}
@@ -306,15 +312,15 @@ export function ContentPage() {
 
           {contentTypes.map((type) => {
             const Icon = type.icon;
-            const key = type.label.toLowerCase();
+            const key = type.label.toLowerCase() as string;
             const dbType = TYPE_MAP[key];
             const count = outputs.filter((o) => o.type === dbType).length;
             return (
               <button
                 key={type.label}
-                onClick={() => setActiveContent(key)}
+                onClick={() => goToSection(key)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
-                  activeContent === key
+                  activeContent === key && activeTab === "library"
                     ? "bg-white/[0.06] border border-white/10"
                     : "border border-transparent hover:bg-white/[0.03]"
                 }`}
@@ -344,7 +350,7 @@ export function ContentPage() {
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Tabs defaultValue="chat" className="flex-1 flex flex-col overflow-hidden">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
           <div className="border-b border-white/[0.07] px-6 bg-transparent flex items-center justify-between">
             <TabsList className="bg-transparent gap-1 h-auto py-2">
               <TabsTrigger
@@ -428,7 +434,14 @@ export function ContentPage() {
                           <Download className="w-3 h-3" />
                           Exportar
                         </button>
-                        <SaveDropdown content={msg.content} onSaved={fetchOutputs} />
+                        <SaveDropdown
+                          content={msg.content}
+                          onSaved={(type) => {
+                            fetchOutputs();
+                            const sectionKey = Object.entries(TYPE_MAP).find(([, v]) => v === type)?.[0] ?? "todos";
+                            goToSection(sectionKey);
+                          }}
+                        />
                       </div>
                     )}
                   </div>
