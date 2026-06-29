@@ -81,12 +81,17 @@ export function PlaygroundPage() {
       if (data.error) { setModelsError(data.error); return; }
       setAllModels(data.models ?? []);
       if (!model && data.models?.length) {
-        // Restore previously selected global model, or fall back to claude-sonnet
-        const restored = data.models.find((m) => m.id === globalModel.id);
-        const featured = restored
+        // Read saved model id directly from localStorage to avoid stale closure
+        let savedId = "anthropic/claude-sonnet-4-6";
+        try {
+          const raw = localStorage.getItem("creator_ai_global_model");
+          if (raw) savedId = (JSON.parse(raw) as { id: string }).id;
+        } catch {}
+        const restored =
+          data.models.find((m) => m.id === savedId)
           ?? data.models.find((m) => m.id === "anthropic/claude-sonnet-4-6")
           ?? data.models[0];
-        setModel(featured);
+        setModel(restored);
       }
     } catch {
       setModelsError("No se pudieron cargar los modelos");
