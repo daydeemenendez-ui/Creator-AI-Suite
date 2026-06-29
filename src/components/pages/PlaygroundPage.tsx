@@ -80,27 +80,25 @@ export function PlaygroundPage() {
       const data = await res.json() as { models?: ORModel[]; error?: string };
       if (data.error) { setModelsError(data.error); return; }
       setAllModels(data.models ?? []);
-      if (!model && data.models?.length) {
-        // Read saved model id directly from localStorage to avoid stale closure
-        let savedId = "anthropic/claude-sonnet-4-6";
-        try {
-          const raw = localStorage.getItem("creator_ai_global_model");
-          if (raw) savedId = (JSON.parse(raw) as { id: string }).id;
-        } catch {}
-        const restored =
-          data.models.find((m) => m.id === savedId)
-          ?? data.models.find((m) => m.id === "anthropic/claude-sonnet-4-6")
-          ?? data.models[0];
-        setModel(restored);
-      }
     } catch {
       setModelsError("No se pudieron cargar los modelos");
     } finally {
       setModelsLoading(false);
     }
-  }, [model]);
+  }, []);
 
   useEffect(() => { loadModels(); }, []);
+
+  // When allModels loads OR globalModel updates from Supabase, sync the active model
+  useEffect(() => {
+    if (!allModels.length) return;
+    const match =
+      allModels.find((m) => m.id === globalModel.id)
+      ?? allModels.find((m) => m.id === "anthropic/claude-sonnet-4-6")
+      ?? allModels[0];
+    setModel(match);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalModel.id, allModels]);
 
   useEffect(() => {
     if (showModelPicker) setTimeout(() => searchRef.current?.focus(), 50);
