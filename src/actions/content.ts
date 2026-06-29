@@ -378,3 +378,10 @@ export async function deleteOutput(id: string) {
   await prisma.contentOutput.delete({ where: { id } });
   return { success: true };
 }
+
+export async function saveOutput(type: ContentType, title: string, body: string) {
+  const output = await prisma.contentOutput.create({
+    data: { type, title, body, model: process.env.OPENROUTER_DEFAULT_MODEL ?? "openrouter" },
+  });
+  return { success: true, output };
+}

@@ -2,22 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  Send,
-  FileText,
-  Lightbulb,
-  Scissors,
-  Search,
-  Mail,
-  Wand2,
-  Copy,
-  Download,
-  RefreshCw,
-  Sparkles,
-  Bot,
-  User,
-  Trash2,
-  Library,
-  Loader2,
+  Send, FileText, Lightbulb, Scissors, Search, Mail, Wand2,
+  Copy, Download, RefreshCw, Sparkles, Bot, User, Trash2,
+  Library, Loader2, BookmarkPlus, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,12 +30,12 @@ interface ChatMessage {
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const TYPE_MAP: Record<string, string> = {
-  ideas:     "IDEA",
-  guiones:   "SCRIPT",
-  shorts:    "SHORTS_SCRIPT",
+  ideas:      "IDEA",
+  guiones:    "SCRIPT",
+  shorts:     "SHORTS_SCRIPT",
   "seo pack": "SEO_PACK",
-  email:     "EMAIL",
-  posts:     "POST",
+  email:      "EMAIL",
+  posts:      "POST",
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -59,6 +46,15 @@ const TYPE_LABEL: Record<string, string> = {
   EMAIL:         "Email",
   POST:          "Post",
 };
+
+const SAVE_OPTIONS = [
+  { label: "Idea",     value: "IDEA",          color: "#F59E0B" },
+  { label: "Guión",    value: "SCRIPT",         color: "#3B82F6" },
+  { label: "Short",    value: "SHORTS_SCRIPT",  color: "#A855F7" },
+  { label: "SEO Pack", value: "SEO_PACK",       color: "#10B981" },
+  { label: "Email",    value: "EMAIL",           color: "#FF6B00" },
+  { label: "Post",     value: "POST",            color: "#EC4899" },
+];
 
 const contentTypes = [
   { icon: Lightbulb, label: "Ideas",    color: "#F59E0B" },
@@ -77,16 +73,95 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   },
 ];
 
+// ── Save Dropdown ──────────────────────────────────────────────────────────
+
+function SaveDropdown({
+  content,
+  onSaved,
+}: {
+  content: string;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  async function handleSave(type: string) {
+    setSaving(true);
+    setOpen(false);
+    const firstLine = content.replace(/[#*`]/g, "").split("\n")[0].trim().slice(0, 80);
+    const fd = new FormData();
+    fd.append("action", "save_output");
+    fd.append("type", type);
+    fd.append("title", firstLine || "Contenido desde chat");
+    fd.append("body", content);
+    await fetch("/api/content", { method: "POST", body: fd });
+    setSaving(false);
+    setSaved(true);
+    onSaved();
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-[11px] text-zinc-600 hover:text-white transition-colors"
+      >
+        {saving ? (
+          <Loader2 className="w-3 h-3 animate-spin" />
+        ) : saved ? (
+          <Check className="w-3 h-3 text-emerald-400" />
+        ) : (
+          <BookmarkPlus className="w-3 h-3" />
+        )}
+        {saved ? "Guardado" : "Guardar"}
+      </button>
+
+      {open && (
+        <div className="absolute bottom-7 left-0 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl z-50 py-1.5 min-w-[140px]">
+          <p className="text-[10px] text-zinc-600 px-3 py-1 uppercase tracking-wider">
+            Guardar como…
+          </p>
+          {SAVE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => handleSave(opt.value)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.05] hover:text-white transition-colors"
+            >
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ background: opt.color }}
+              />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function ContentPage() {
-  const [message, setMessage]         = useState("");
+  const [message, setMessage]             = useState("");
   const [activeContent, setActiveContent] = useState("todos");
-  const [messages, setMessages]       = useState<ChatMessage[]>(INITIAL_MESSAGES);
-  const [isSending, setIsSending]     = useState(false);
-  const [outputs, setOutputs]         = useState<ContentOutput[]>([]);
-  const [loadingLib, setLoadingLib]   = useState(false);
-  const [deletingId, setDeletingId]   = useState<string | null>(null);
+  const [messages, setMessages]           = useState<ChatMessage[]>(INITIAL_MESSAGES);
+  const [isSending, setIsSending]         = useState(false);
+  const [outputs, setOutputs]             = useState<ContentOutput[]>([]);
+  const [loadingLib, setLoadingLib]       = useState(false);
+  const [deletingId, setDeletingId]       = useState<string | null>(null);
+  const [copiedIdx, setCopiedIdx]         = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // ── Fetch library ──────────────────────────────────────────────────────
@@ -106,17 +181,14 @@ export function ContentPage() {
 
   useEffect(() => { fetchOutputs(); }, []);
 
-  // ── Scroll chat to bottom ──────────────────────────────────────────────
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // ── Chat ──────────────────────────────────────────────────────────────
 
-  async function handleSend() {
-    const text = message.trim();
-    if (!text || isSending) return;
+  async function sendMessage(text: string) {
+    if (!text.trim() || isSending) return;
 
     const userMsg: ChatMessage = { role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
@@ -131,15 +203,17 @@ export function ContentPage() {
       fd.append("history", JSON.stringify(history));
 
       const res = await fetch("/api/content", { method: "POST", body: fd });
-      const data = await res.json() as { response?: string; error?: string; savedOutput?: { id: string; type: string } };
-
-      const assistantMsg: ChatMessage = {
-        role: "assistant",
-        content: data.response ?? data.error ?? "Error al obtener respuesta.",
+      const data = await res.json() as {
+        response?: string;
+        error?: string;
+        savedOutput?: { id: string; type: string };
       };
-      setMessages((prev) => [...prev, assistantMsg]);
 
-      // Refresh library if content was auto-saved
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.response ?? data.error ?? "Error al obtener respuesta." },
+      ]);
+
       if (data.savedOutput) fetchOutputs();
     } catch {
       setMessages((prev) => [
@@ -151,6 +225,35 @@ export function ContentPage() {
     }
   }
 
+  function handleSend() { sendMessage(message.trim()); }
+
+  // ── Message actions ────────────────────────────────────────────────────
+
+  function copyMessage(content: string, idx: number) {
+    navigator.clipboard.writeText(content);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 2000);
+  }
+
+  function exportMessage(content: string) {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "contenido-ai.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function regenerate(idx: number) {
+    // Find the user message right before this assistant message
+    const userMsg = messages.slice(0, idx).reverse().find((m) => m.role === "user");
+    if (!userMsg) return;
+    // Remove this assistant message and resend
+    setMessages((prev) => prev.slice(0, idx));
+    sendMessage(userMsg.content);
+  }
+
   // ── Delete ─────────────────────────────────────────────────────────────
 
   async function handleDelete(id: string) {
@@ -160,9 +263,7 @@ export function ContentPage() {
       fd.append("action", "delete_output");
       fd.append("id", id);
       const res = await fetch("/api/content", { method: "POST", body: fd });
-      if (res.ok) {
-        setOutputs((prev) => prev.filter((o) => o.id !== id));
-      }
+      if (res.ok) setOutputs((prev) => prev.filter((o) => o.id !== id));
     } finally {
       setDeletingId(null);
     }
@@ -190,7 +291,6 @@ export function ContentPage() {
             Tipo de contenido
           </p>
 
-          {/* Biblioteca / Todos */}
           <button
             onClick={() => setActiveContent("todos")}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
@@ -307,22 +407,34 @@ export function ContentPage() {
                       }}
                     />
                     {msg.role === "assistant" && (
-                      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-white/[0.05]">
+                      <div className="flex items-center gap-3 mt-3 pt-2 border-t border-white/[0.05]">
                         <button
-                          onClick={() => navigator.clipboard.writeText(msg.content)}
+                          onClick={() => copyMessage(msg.content, i)}
                           className="flex items-center gap-1.5 text-[11px] text-zinc-600 hover:text-white transition-colors"
                         >
-                          <Copy className="w-3 h-3" />
-                          Copiar
+                          {copiedIdx === i ? (
+                            <Check className="w-3 h-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                          {copiedIdx === i ? "Copiado" : "Copiar"}
                         </button>
-                        <button className="flex items-center gap-1.5 text-[11px] text-zinc-600 hover:text-white transition-colors">
+                        <button
+                          onClick={() => regenerate(i)}
+                          disabled={isSending}
+                          className="flex items-center gap-1.5 text-[11px] text-zinc-600 hover:text-white transition-colors disabled:opacity-40"
+                        >
                           <RefreshCw className="w-3 h-3" />
                           Regenerar
                         </button>
-                        <button className="flex items-center gap-1.5 text-[11px] text-zinc-600 hover:text-white transition-colors">
+                        <button
+                          onClick={() => exportMessage(msg.content)}
+                          className="flex items-center gap-1.5 text-[11px] text-zinc-600 hover:text-white transition-colors"
+                        >
                           <Download className="w-3 h-3" />
                           Exportar
                         </button>
+                        <SaveDropdown content={msg.content} onSaved={fetchOutputs} />
                       </div>
                     )}
                   </div>
