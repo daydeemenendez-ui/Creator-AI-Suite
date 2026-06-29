@@ -73,7 +73,14 @@ export function IdeasPage() {
   const [newIdeaDesc, setNewIdeaDesc] = useState("");
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState<string | null>(null); // ideaId+type being converted
-  const [generated, setGenerated] = useState<Record<string, { guion?: string; post?: string }>>({});
+  const [generated, setGenerated] = useState<Record<string, { guion?: string; post?: string }>>(() => {
+    try {
+      const saved = localStorage.getItem("ideas_generated");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
   const [conversionResult, setConversionResult] = useState<{
     title: string;
     targetType: "guion" | "post";
@@ -81,6 +88,12 @@ export function IdeasPage() {
   } | null>(null);
   const [copied, setCopied] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ideas_generated", JSON.stringify(generated));
+    } catch {}
+  }, [generated]);
 
   async function fetchIdeas() {
     try {
