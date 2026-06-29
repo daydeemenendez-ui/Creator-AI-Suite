@@ -91,16 +91,16 @@ model Transcript {
 // ─────────────────────────────────────────────
 model ContentOutput {
   id           String      @id @default(cuid())
-  transcriptId String
+  transcriptId String?
   type         ContentType
   title        String?
   body         String
   metadata     Json?
-  model        String?     // openrouter model used
+  model        String?
   promptTokens Int?
   createdAt    DateTime    @default(now())
 
-  transcript Transcript @relation(fields: [transcriptId], references: [id], onDelete: Cascade)
+  transcript Transcript? @relation(fields: [transcriptId], references: [id], onDelete: Cascade)
 
   @@map("content_outputs")
 }
