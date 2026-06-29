@@ -66,6 +66,22 @@ export async function toggleIdeaStarred(id: string, starred: boolean) {
   }
 }
 
+export async function saveGeneratedContent(
+  id: string,
+  targetType: "guion" | "post",
+  content: string
+) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any =
+      targetType === "guion" ? { generatedGuion: content } : { generatedPost: content };
+    await prisma.idea.update({ where: { id }, data });
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
 export async function convertIdea(
   title: string,
   description: string,

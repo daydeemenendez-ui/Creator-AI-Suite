@@ -42,6 +42,8 @@ interface Idea {
   tags: string[];
   priority: string;
   starred: boolean;
+  generatedGuion: string | null;
+  generatedPost: string | null;
   createdAt: string;
 }
 
@@ -73,14 +75,7 @@ export function IdeasPage() {
   const [newIdeaDesc, setNewIdeaDesc] = useState("");
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState<string | null>(null); // ideaId+type being converted
-  const [generated, setGenerated] = useState<Record<string, { guion?: string; post?: string }>>(() => {
-    try {
-      const saved = localStorage.getItem("ideas_generated");
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const [generated, setGenerated] = useState<Record<string, { guion?: string; post?: string }>>({});
   const [conversionResult, setConversionResult] = useState<{
     title: string;
     targetType: "guion" | "post";
@@ -89,17 +84,23 @@ export function IdeasPage() {
   const [copied, setCopied] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem("ideas_generated", JSON.stringify(generated));
-    } catch {}
-  }, [generated]);
-
   async function fetchIdeas() {
     try {
       const res = await fetch("/api/ideas");
       const data = await res.json();
-      setIdeas(data.ideas ?? []);
+      const ideas: Idea[] = data.ideas ?? [];
+      setIdeas(ideas);
+      // Seed generated state from DB values
+      const seed: Record<string, { guion?: string; post?: string }> = {};
+      for (const idea of ideas) {
+        if (idea.generatedGuion || idea.generatedPost) {
+          seed[idea.id] = {
+            ...(idea.generatedGuion ? { guion: idea.generatedGuion } : {}),
+            ...(idea.generatedPost ? { post: idea.generatedPost } : {}),
+          };
+        }
+      }
+      setGenerated(seed);
     } catch {
       // ignore
     } finally {
@@ -171,6 +172,7 @@ export function IdeasPage() {
     try {
       const formData = new FormData();
       formData.set("action", "convert");
+      formData.set("id", idea.id);
       formData.set("title", idea.title);
       formData.set("description", idea.description ?? "");
       formData.set("targetType", targetType);

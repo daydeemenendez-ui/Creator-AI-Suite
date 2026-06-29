@@ -120,10 +120,12 @@ model Idea {
   title       String
   description String?
   tags        String[]
-  priority    String   @default("media")
-  starred     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  priority         String   @default("media")
+  starred          Boolean  @default(false)
+  generatedGuion   String?
+  generatedPost    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
