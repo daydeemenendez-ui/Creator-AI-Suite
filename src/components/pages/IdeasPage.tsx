@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Plus,
   Search,
@@ -16,6 +16,9 @@ import {
   Clock,
   X,
   Loader2,
+  Copy,
+  Check,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +72,14 @@ export function IdeasPage() {
   const [newIdeaTitle, setNewIdeaTitle] = useState("");
   const [newIdeaDesc, setNewIdeaDesc] = useState("");
   const [saving, setSaving] = useState(false);
+  const [converting, setConverting] = useState<string | null>(null); // ideaId being converted
+  const [conversionResult, setConversionResult] = useState<{
+    title: string;
+    targetType: "guion" | "post";
+    content: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   async function fetchIdeas() {
     try {
@@ -133,6 +144,42 @@ export function IdeasPage() {
     formData.set("id", id);
     formData.set("starred", String(starred));
     await fetch("/api/ideas", { method: "POST", body: formData });
+  }
+
+  async function handleConvert(idea: Idea, targetType: "guion" | "post") {
+    setConverting(idea.id + targetType);
+    try {
+      const formData = new FormData();
+      formData.set("action", "convert");
+      formData.set("title", idea.title);
+      formData.set("description", idea.description ?? "");
+      formData.set("targetType", targetType);
+      const res = await fetch("/api/ideas", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.success && data.content) {
+        setConversionResult({ title: idea.title, targetType, content: data.content });
+      }
+    } finally {
+      setConverting(null);
+    }
+  }
+
+  function handleCopyResult() {
+    if (!conversionResult) return;
+    navigator.clipboard.writeText(conversionResult.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleExportResult() {
+    if (!conversionResult) return;
+    const blob = new Blob([conversionResult.content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${conversionResult.targetType === "guion" ? "guion" : "post"}-${conversionResult.title.slice(0, 40)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const filtered = ideas.filter((idea) => {
@@ -258,11 +305,17 @@ export function IdeasPage() {
                       align="end"
                       className="w-44 bg-[#1a1a1a] border-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
                     >
-                      <DropdownMenuItem className="text-sm hover:bg-white/[0.05] gap-2 cursor-pointer">
+                      <DropdownMenuItem
+                        onClick={() => handleConvert(idea, "guion")}
+                        className="text-sm hover:bg-white/[0.05] gap-2 cursor-pointer"
+                      >
                         <FileText className="w-3.5 h-3.5" />
                         Convertir a guión
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-sm hover:bg-white/[0.05] gap-2 cursor-pointer">
+                      <DropdownMenuItem
+                        onClick={() => handleConvert(idea, "post")}
+                        className="text-sm hover:bg-white/[0.05] gap-2 cursor-pointer"
+                      >
                         <Zap className="w-3.5 h-3.5" />
                         Convertir a post
                       </DropdownMenuItem>
@@ -314,17 +367,29 @@ export function IdeasPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="flex-1 h-7 text-xs text-zinc-600 hover:text-white border border-white/[0.08] hover:border-[#FF0033]/25 gap-1"
+                  disabled={!!converting}
+                  onClick={() => handleConvert(idea, "guion")}
+                  className="flex-1 h-7 text-xs text-zinc-600 hover:text-white border border-white/[0.08] hover:border-[#FF0033]/25 gap-1 disabled:opacity-50"
                 >
-                  <FileText className="w-3 h-3" />
+                  {converting === idea.id + "guion" ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <FileText className="w-3 h-3" />
+                  )}
                   → Guión
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="flex-1 h-7 text-xs text-zinc-600 hover:text-white border border-white/[0.08] hover:border-[#FF0033]/25 gap-1"
+                  disabled={!!converting}
+                  onClick={() => handleConvert(idea, "post")}
+                  className="flex-1 h-7 text-xs text-zinc-600 hover:text-white border border-white/[0.08] hover:border-[#FF0033]/25 gap-1 disabled:opacity-50"
                 >
-                  <Zap className="w-3 h-3" />
+                  {converting === idea.id + "post" ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Zap className="w-3 h-3" />
+                  )}
                   → Post
                 </Button>
                 <Button
@@ -351,6 +416,58 @@ export function IdeasPage() {
             </p>
             <p className="text-xs text-zinc-700 mt-1">Haz clic para agregar</p>
           </Card>
+        </div>
+      )}
+
+      {/* Conversion Result Modal */}
+      {conversionResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setConversionResult(null)} />
+          <div
+            ref={resultRef}
+            onClick={(e) => e.stopPropagation()}
+            className="relative bg-[#161616] border border-white/10 rounded-2xl w-full max-w-2xl mx-4 shadow-[0_24px_80px_rgba(0,0,0,0.8)] flex flex-col max-h-[85vh]"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/[0.07] flex-shrink-0">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  {conversionResult.targetType === "guion" ? (
+                    <FileText className="w-4 h-4 text-[#FF0033]" />
+                  ) : (
+                    <Zap className="w-4 h-4 text-[#FF0033]" />
+                  )}
+                  <span className="text-xs font-semibold text-[#FF0033] uppercase tracking-wider">
+                    {conversionResult.targetType === "guion" ? "Guión generado" : "Post generado"}
+                  </span>
+                </div>
+                <h2 className="text-sm font-semibold text-white line-clamp-1">{conversionResult.title}</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyResult}
+                  className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg transition-all"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? "Copiado" : "Copiar"}
+                </button>
+                <button
+                  onClick={handleExportResult}
+                  className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg transition-all"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Exportar
+                </button>
+                <button onClick={() => setConversionResult(null)} className="text-zinc-600 hover:text-white transition-colors ml-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            {/* Body */}
+            <div className="overflow-y-auto px-6 py-5 flex-1">
+              <p className="text-sm text-zinc-300 leading-7 whitespace-pre-wrap">{conversionResult.content}</p>
+            </div>
+          </div>
         </div>
       )}
 

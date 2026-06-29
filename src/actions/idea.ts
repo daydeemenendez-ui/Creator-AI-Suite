@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { chat } from "@/lib/openrouter";
 
 async function getOrCreateDefaultProject() {
   const existing = await prisma.project.findFirst({ orderBy: { createdAt: "asc" } });
@@ -60,6 +61,33 @@ export async function toggleIdeaStarred(id: string, starred: boolean) {
   try {
     const idea = await prisma.idea.update({ where: { id }, data: { starred } });
     return { success: true, idea };
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
+export async function convertIdea(
+  title: string,
+  description: string,
+  targetType: "guion" | "post"
+) {
+  const systemPrompt =
+    "Eres un experto en creación de contenido para YouTube y redes sociales. Responde siempre en español.";
+
+  const prompt =
+    targetType === "guion"
+      ? `Escribe un guión completo para YouTube basado en esta idea de video.\n\nTítulo: "${title}"\nContexto: ${description || "Sin descripción adicional."}\n\nIncluye: gancho inicial impactante, desarrollo con puntos clave, llamada a la acción al final. Usa formato claro con secciones.`
+      : `Escribe un post atractivo para redes sociales (Instagram/LinkedIn) basado en esta idea.\n\nTítulo: "${title}"\nContexto: ${description || "Sin descripción adicional."}\n\nHaz el texto dinámico, con emojis relevantes, hashtags al final y una pregunta para generar comentarios.`;
+
+  try {
+    const content = await chat(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt },
+      ],
+      { temperature: 0.75, maxTokens: 2000 }
+    );
+    return { success: true, content };
   } catch (err) {
     return { error: String(err) };
   }

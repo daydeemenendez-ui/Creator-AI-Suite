@@ -5,6 +5,7 @@ import {
   deleteIdea,
   updateIdeaPriority,
   toggleIdeaStarred,
+  convertIdea,
 } from "@/actions/idea";
 
 export async function GET() {
@@ -38,6 +39,14 @@ export async function POST(req: NextRequest) {
     const id = formData.get("id") as string;
     const starred = formData.get("starred") === "true";
     const result = await toggleIdeaStarred(id, starred);
+    return NextResponse.json(result);
+  }
+
+  if (action === "convert") {
+    const title = formData.get("title") as string;
+    const description = (formData.get("description") as string) ?? "";
+    const targetType = formData.get("targetType") as "guion" | "post";
+    const result = await convertIdea(title, description, targetType);
     return NextResponse.json(result);
   }
 
