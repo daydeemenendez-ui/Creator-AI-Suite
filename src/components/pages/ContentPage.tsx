@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Send,
   FileText,
@@ -15,6 +15,9 @@ import {
   Sparkles,
   Bot,
   User,
+  Trash2,
+  Library,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,65 +25,153 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// ── Types ──────────────────────────────────────────────────────────────────
+
+interface ContentOutput {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  createdAt: string;
+}
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+// ── Constants ──────────────────────────────────────────────────────────────
+
+const TYPE_MAP: Record<string, string> = {
+  ideas:     "IDEA",
+  guiones:   "SCRIPT",
+  shorts:    "SHORTS_SCRIPT",
+  "seo pack": "SEO_PACK",
+  email:     "EMAIL",
+  posts:     "POST",
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  IDEA:          "Idea",
+  SCRIPT:        "Guión",
+  SHORTS_SCRIPT: "Short",
+  SEO_PACK:      "SEO Pack",
+  EMAIL:         "Email",
+  POST:          "Post",
+};
+
 const contentTypes = [
-  { icon: Lightbulb, label: "Ideas",   count: 12, color: "#F59E0B" },
-  { icon: FileText,  label: "Guiones", count: 5,  color: "#3B82F6" },
-  { icon: Scissors,  label: "Shorts",  count: 8,  color: "#A855F7" },
-  { icon: Search,    label: "SEO Pack",count: 3,  color: "#10B981" },
-  { icon: Mail,      label: "Email",   count: 2,  color: "#FF6B00" },
-  { icon: FileText,  label: "Posts",   count: 6,  color: "#EC4899" },
+  { icon: Lightbulb, label: "Ideas",    color: "#F59E0B" },
+  { icon: FileText,  label: "Guiones",  color: "#3B82F6" },
+  { icon: Scissors,  label: "Shorts",   color: "#A855F7" },
+  { icon: Search,    label: "SEO Pack", color: "#10B981" },
+  { icon: Mail,      label: "Email",    color: "#FF6B00" },
+  { icon: FileText,  label: "Posts",    color: "#EC4899" },
 ];
 
-const chatHistory = [
+const INITIAL_MESSAGES: ChatMessage[] = [
   {
     role: "assistant",
     content:
       "¡Hola! Soy tu asistente de contenido IA. Puedo ayudarte a crear guiones, ideas de videos, posts para redes sociales, descripciones SEO y mucho más. ¿Con qué quieres empezar?",
   },
-  {
-    role: "user",
-    content:
-      "Genera 5 ideas para videos sobre productividad para YouTubers basadas en las tendencias de 2025.",
-  },
-  {
-    role: "assistant",
-    content: `Aquí tienes 5 ideas de alto potencial para tu canal:
-
-**1. "La Rutina Matutina del YouTuber Exitoso en 2025"**
-↳ Sistema de 90 minutos que maximiza la creación. CTR potencial muy alto.
-
-**2. "Cómo Automaticé 80% de Mi Canal con IA"**
-↳ Tutorial práctico mostrando herramientas reales. Trending topic.
-
-**3. "El Stack de Apps que Uso Para 3 Videos a la Semana"**
-↳ Video de herramientas — alto CPM, fácil de monetizar.
-
-**4. "Por Qué Dejé de Hacer Videos Perfectos (Y Tripling Mi Canal)"**
-↳ Historia personal + estrategia. Alta retención esperada.
-
-**5. "Script → Video en 4 Horas: Mi Proceso Completo"**
-↳ Behind-the-scenes + productividad. Muy compartible.
-
-¿Quieres que desarrolle alguna de estas ideas en un guión completo?`,
-  },
 ];
 
-export function ContentPage() {
-  const [message, setMessage] = useState("");
-  const [activeContent, setActiveContent] = useState("ideas");
-  const [messages, setMessages] = useState(chatHistory);
+// ── Component ──────────────────────────────────────────────────────────────
 
-  function handleSend() {
-    const text = message.trim();
-    if (!text) return;
-    const userMsg = { role: "user" as const, content: text };
-    const assistantMsg = {
-      role: "assistant" as const,
-      content: "Procesando tu solicitud con IA... (conecta OpenRouter para respuestas reales)",
-    };
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
-    setMessage("");
+export function ContentPage() {
+  const [message, setMessage]         = useState("");
+  const [activeContent, setActiveContent] = useState("todos");
+  const [messages, setMessages]       = useState<ChatMessage[]>(INITIAL_MESSAGES);
+  const [isSending, setIsSending]     = useState(false);
+  const [outputs, setOutputs]         = useState<ContentOutput[]>([]);
+  const [loadingLib, setLoadingLib]   = useState(false);
+  const [deletingId, setDeletingId]   = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // ── Fetch library ──────────────────────────────────────────────────────
+
+  async function fetchOutputs() {
+    setLoadingLib(true);
+    try {
+      const res = await fetch("/api/content");
+      if (res.ok) {
+        const data = await res.json() as { outputs: ContentOutput[] };
+        setOutputs(data.outputs ?? []);
+      }
+    } finally {
+      setLoadingLib(false);
+    }
   }
+
+  useEffect(() => { fetchOutputs(); }, []);
+
+  // ── Scroll chat to bottom ──────────────────────────────────────────────
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // ── Chat ──────────────────────────────────────────────────────────────
+
+  async function handleSend() {
+    const text = message.trim();
+    if (!text || isSending) return;
+
+    const userMsg: ChatMessage = { role: "user", content: text };
+    setMessages((prev) => [...prev, userMsg]);
+    setMessage("");
+    setIsSending(true);
+
+    try {
+      const history = messages.map((m) => ({ role: m.role, content: m.content }));
+      const fd = new FormData();
+      fd.append("action", "chat");
+      fd.append("message", text);
+      fd.append("history", JSON.stringify(history));
+
+      const res = await fetch("/api/content", { method: "POST", body: fd });
+      const data = await res.json() as { response?: string; error?: string };
+
+      const assistantMsg: ChatMessage = {
+        role: "assistant",
+        content: data.response ?? data.error ?? "Error al obtener respuesta.",
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Error de conexión. Verifica tu API key de OpenRouter." },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  // ── Delete ─────────────────────────────────────────────────────────────
+
+  async function handleDelete(id: string) {
+    setDeletingId(id);
+    try {
+      const fd = new FormData();
+      fd.append("action", "delete_output");
+      fd.append("id", id);
+      const res = await fetch("/api/content", { method: "POST", body: fd });
+      if (res.ok) {
+        setOutputs((prev) => prev.filter((o) => o.id !== id));
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  // ── Filtered outputs ───────────────────────────────────────────────────
+
+  const filtered = activeContent === "todos"
+    ? outputs
+    : outputs.filter((o) => o.type === TYPE_MAP[activeContent]);
+
+  // ── Render ─────────────────────────────────────────────────────────────
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -95,14 +186,38 @@ export function ContentPage() {
           <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider px-2 mb-2">
             Tipo de contenido
           </p>
+
+          {/* Biblioteca / Todos */}
+          <button
+            onClick={() => setActiveContent("todos")}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
+              activeContent === "todos"
+                ? "bg-white/[0.06] border border-white/10"
+                : "border border-transparent hover:bg-white/[0.03]"
+            }`}
+          >
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.05]">
+              <Library className="w-3.5 h-3.5 text-zinc-400" />
+            </div>
+            <span className="text-sm text-zinc-300 flex-1">Biblioteca</span>
+            <Badge className="text-[10px] bg-white/[0.04] border-white/10 text-zinc-600">
+              {outputs.length}
+            </Badge>
+          </button>
+
+          <div className="border-t border-white/[0.05] my-2" />
+
           {contentTypes.map((type) => {
             const Icon = type.icon;
+            const key = type.label.toLowerCase();
+            const dbType = TYPE_MAP[key];
+            const count = outputs.filter((o) => o.type === dbType).length;
             return (
               <button
                 key={type.label}
-                onClick={() => setActiveContent(type.label.toLowerCase())}
+                onClick={() => setActiveContent(key)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
-                  activeContent === type.label.toLowerCase()
+                  activeContent === key
                     ? "bg-white/[0.06] border border-white/10"
                     : "border border-transparent hover:bg-white/[0.03]"
                 }`}
@@ -115,7 +230,7 @@ export function ContentPage() {
                 </div>
                 <span className="text-sm text-zinc-300 flex-1">{type.label}</span>
                 <Badge className="text-[10px] bg-white/[0.04] border-white/10 text-zinc-600">
-                  {type.count}
+                  {count}
                 </Badge>
               </button>
             );
@@ -150,7 +265,7 @@ export function ContentPage() {
             </TabsList>
             <div className="flex items-center gap-2 py-2">
               <Badge className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                Claude Sonnet
+                OpenRouter
               </Badge>
             </div>
           </div>
@@ -190,7 +305,10 @@ export function ContentPage() {
                     />
                     {msg.role === "assistant" && (
                       <div className="flex items-center gap-2 mt-3 pt-2 border-t border-white/[0.05]">
-                        <button className="flex items-center gap-1.5 text-[11px] text-zinc-600 hover:text-white transition-colors">
+                        <button
+                          onClick={() => navigator.clipboard.writeText(msg.content)}
+                          className="flex items-center gap-1.5 text-[11px] text-zinc-600 hover:text-white transition-colors"
+                        >
                           <Copy className="w-3 h-3" />
                           Copiar
                         </button>
@@ -207,6 +325,20 @@ export function ContentPage() {
                   </div>
                 </div>
               ))}
+
+              {isSending && (
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-[#FF0033]/15 border border-[#FF0033]/25">
+                    <Bot className="w-4 h-4 text-[#FF0033]" />
+                  </div>
+                  <div className="bg-[#141414] border border-white/[0.08] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 text-zinc-500 animate-spin" />
+                    <span className="text-sm text-zinc-500">Pensando...</span>
+                  </div>
+                </div>
+              )}
+
+              <div ref={bottomRef} />
             </div>
 
             {/* Quick prompts */}
@@ -247,7 +379,7 @@ export function ContentPage() {
                 </div>
                 <Button
                   onClick={handleSend}
-                  disabled={!message.trim()}
+                  disabled={!message.trim() || isSending}
                   className="bg-[#FF0033] hover:bg-[#e8002e] text-white h-11 w-11 p-0 flex-shrink-0 shadow-[0_0_16px_rgba(255,0,51,0.2)] hover:shadow-[0_0_20px_rgba(255,0,51,0.3)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
                   <Send className="w-4 h-4" />
@@ -258,46 +390,62 @@ export function ContentPage() {
 
           {/* Library Tab */}
           <TabsContent value="library" className="flex-1 overflow-y-auto m-0 p-6">
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { title: "Guión: Cómo usar IA en 2025", type: "Guión", date: "hoy",         words: 1240 },
-                { title: "5 Ideas Trending YouTube",     type: "Ideas", date: "ayer",         words: 430  },
-                { title: "Descripción SEO Canal",        type: "SEO",   date: "ayer",         words: 280  },
-                { title: "Email de Bienvenida",          type: "Email", date: "hace 2 días",  words: 350  },
-              ].map((item) => (
-                <Card
-                  key={item.title}
-                  className="bg-[#141414] border-white/[0.08] p-4 hover:border-white/[0.14] hover:bg-[#181818] cursor-pointer transition-all group"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20">
-                      {item.type}
-                    </Badge>
-                    <span className="text-[11px] text-zinc-600">{item.date}</span>
-                  </div>
-                  <h3 className="text-sm font-semibold text-white mb-2 group-hover:text-[#FF0033] transition-colors tracking-tight">
-                    {item.title}
-                  </h3>
-                  <p className="text-[11px] text-zinc-600">{item.words} palabras</p>
-                  <div className="flex gap-2 mt-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="flex-1 h-7 text-xs text-zinc-600 hover:text-white border border-white/[0.08] hover:border-white/[0.14]"
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-zinc-600 hover:text-white border border-white/[0.08] hover:border-white/[0.14]"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
+            {loadingLib ? (
+              <div className="flex items-center justify-center h-40 gap-3 text-zinc-600">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">Cargando biblioteca...</span>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-zinc-700 gap-2">
+                <Library className="w-8 h-8" />
+                <p className="text-sm">No hay elementos en esta categoría aún.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {filtered.map((item) => (
+                  <Card
+                    key={item.id}
+                    className="bg-[#141414] border-white/[0.08] p-4 hover:border-white/[0.14] hover:bg-[#181818] cursor-pointer transition-all group"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20">
+                        {TYPE_LABEL[item.type] ?? item.type}
+                      </Badge>
+                      <span className="text-[11px] text-zinc-600">
+                        {new Date(item.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-white mb-2 group-hover:text-[#FF0033] transition-colors tracking-tight line-clamp-2">
+                      {item.title}
+                    </h3>
+                    <p className="text-[11px] text-zinc-600">{item.body?.split(/\s+/).length ?? 0} palabras</p>
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 h-7 text-xs text-zinc-600 hover:text-white border border-white/[0.08] hover:border-white/[0.14]"
+                        onClick={() => navigator.clipboard.writeText(item.body)}
+                      >
+                        <Copy className="w-3 h-3 mr-1" />
+                        Copiar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={deletingId === item.id}
+                        onClick={() => handleDelete(item.id)}
+                        className="h-7 w-7 p-0 text-zinc-600 hover:text-red-400 border border-white/[0.08] hover:border-red-500/30 transition-colors"
+                      >
+                        {deletingId === item.id
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <Trash2 className="w-3 h-3" />
+                        }
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

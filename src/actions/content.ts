@@ -326,3 +326,15 @@ export async function listOutputs(transcriptId: string) {
   });
   return { outputs };
 }
+
+export async function listAllOutputs() {
+  const outputs = await prisma.contentOutput.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+  return { outputs };
+}
+
+export async function deleteOutput(id: string) {
+  await prisma.contentOutput.delete({ where: { id } });
+  return { success: true };
+}

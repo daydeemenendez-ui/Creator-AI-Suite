@@ -7,19 +7,28 @@ import {
   generateEmail,
   contentChat,
   listOutputs,
+  listAllOutputs,
+  deleteOutput,
 } from "@/actions/content";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const action = formData.get("action") as string;
 
+  if (action === "delete_output") {
+    const id = formData.get("id") as string;
+    if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+    const result = await deleteOutput(id);
+    return NextResponse.json(result);
+  }
+
   const handlers: Record<string, (f: FormData) => Promise<unknown>> = {
-    generate_ideas: generateIdeas,
+    generate_ideas:  generateIdeas,
     generate_script: generateScript,
     generate_shorts: generateShorts,
-    generate_seo: generateSEO,
-    generate_email: generateEmail,
-    chat: contentChat,
+    generate_seo:    generateSEO,
+    generate_email:  generateEmail,
+    chat:            contentChat,
   };
 
   const handler = handlers[action];
@@ -32,7 +41,12 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const transcriptId = searchParams.get("transcriptId");
-  if (!transcriptId) return NextResponse.json({ error: "transcriptId required" }, { status: 400 });
+
+  if (!transcriptId) {
+    const result = await listAllOutputs();
+    return NextResponse.json(result);
+  }
+
   const result = await listOutputs(transcriptId);
   return NextResponse.json(result);
 }
