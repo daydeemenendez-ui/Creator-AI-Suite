@@ -332,24 +332,7 @@ export async function contentChat(formData: FormData) {
 
     const response = await chat(messages, { temperature: 0.7 });
 
-    // Auto-save to library if the request is for a specific content type
-    const type = detectOutputType(message);
-    let savedOutput: { id: string; type: ContentType } | null = null;
-
-    if (type) {
-      const output = await prisma.contentOutput.create({
-        data: {
-          type,
-          title: extractTitle(response, type),
-          body: response,
-          model: process.env.OPENROUTER_DEFAULT_MODEL ?? "openrouter",
-          ...(transcriptId ? { transcriptId } : {}),
-        },
-      });
-      savedOutput = { id: output.id, type: output.type };
-    }
-
-    return { success: true, response, savedOutput };
+    return { success: true, response };
   } catch (err) {
     return { error: String(err) };
   }

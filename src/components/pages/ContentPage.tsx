@@ -203,18 +203,12 @@ export function ContentPage() {
       fd.append("history", JSON.stringify(history));
 
       const res = await fetch("/api/content", { method: "POST", body: fd });
-      const data = await res.json() as {
-        response?: string;
-        error?: string;
-        savedOutput?: { id: string; type: string };
-      };
+      const data = await res.json() as { response?: string; error?: string };
 
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: data.response ?? data.error ?? "Error al obtener respuesta." },
       ]);
-
-      if (data.savedOutput) fetchOutputs();
     } catch {
       setMessages((prev) => [
         ...prev,
