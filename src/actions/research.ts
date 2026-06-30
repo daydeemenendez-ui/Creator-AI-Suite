@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { uploadVideoFile } from "@/lib/supabase/storage";
+import { transcribeAudio } from "@/lib/groq";
+import { extractAudioFromVideo } from "@/lib/ffmpeg";
 import { z } from "zod";
 
 // ─────────────────────────────────────────────
@@ -9,9 +11,15 @@ import { z } from "zod";
 // ─────────────────────────────────────────────
 
 const AnalyzeUrlSchema = z.object({
-  projectId: z.string().min(1),
-  url: z.string().url().includes("youtube"),
+  projectId: z.string().optional(),
+  url: z.string().url(),
 });
+
+async function getOrCreateDefaultProject() {
+  const existing = await prisma.project.findFirst({ orderBy: { createdAt: "asc" } });
+  if (existing) return existing;
+  return prisma.project.create({ data: { name: "Mi Proyecto" } });
+}
 
 const SaveWorkspaceSchema = z.object({
   transcriptId: z.string().min(1),
@@ -33,7 +41,9 @@ export async function analyzeYouTubeUrl(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const { projectId, url } = parsed.data;
+  const { url } = parsed.data;
+  const project = await getOrCreateDefaultProject();
+  const projectId = project.id;
 
   // Create source record
   const source = await prisma.source.create({
@@ -82,8 +92,10 @@ export async function analyzeYouTubeUrl(formData: FormData) {
       success: true,
       sourceId: source.id,
       transcriptId: transcriptRecord.id,
-      title: oembed?.title,
+      title: oembed?.title ?? `Video ${videoId}`,
+      channelName: oembed?.author_name ?? null,
       wordCount: transcriptRecord.wordCount,
+      originalText: transcript,
     };
   } catch (err) {
     await prisma.source.update({
@@ -99,12 +111,14 @@ export async function analyzeYouTubeUrl(formData: FormData) {
 // ─────────────────────────────────────────────
 
 export async function uploadAndTranscribe(formData: FormData) {
-  const projectId = formData.get("projectId") as string;
   const file = formData.get("file") as File | null;
 
-  if (!file || !projectId) {
-    return { error: "Missing file or projectId" };
+  if (!file) {
+    return { error: "Missing file" };
   }
+
+  const project = await getOrCreateDefaultProject();
+  const projectId = project.id;
 
   const allowedTypes = ["video/mp4", "audio/mpeg", "audio/wav", "audio/mp3"];
   if (!allowedTypes.includes(file.type)) {
@@ -125,7 +139,9 @@ export async function uploadAndTranscribe(formData: FormData) {
   });
 
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
+    let buffer = Buffer.from(await file.arrayBuffer());
+
+    // Upload original file to Supabase Storage
     const fileUrl = await uploadVideoFile(buffer, file.name, file.type);
 
     await prisma.source.update({
@@ -133,16 +149,24 @@ export async function uploadAndTranscribe(formData: FormData) {
       data: { fileUrl, title: file.name, status: "READY" },
     });
 
-    // Transcription of uploaded files would integrate Whisper/AssemblyAI here.
-    // Placeholder transcript for now — replace with actual STT call.
-    const placeholderTranscript = `[Archivo subido: ${file.name}]\n\nLa transcripción del archivo de audio/video estará disponible aquí una vez procesado por el sistema STT (Whisper / AssemblyAI).`;
+    // Extract audio from MP4 before sending to Whisper
+    let audioBuffer: Buffer = buffer;
+    let audioFileName = file.name;
+    if (file.type === "video/mp4" || file.name.toLowerCase().endsWith(".mp4")) {
+      const extracted = await extractAudioFromVideo(buffer, "mp4");
+      audioBuffer = Buffer.from(extracted) as Buffer;
+      audioFileName = file.name.replace(/\.mp4$/i, ".mp3");
+    }
+
+    // Transcribe with Groq Whisper
+    const transcript = await transcribeAudio(audioBuffer, audioFileName);
 
     const transcriptRecord = await prisma.transcript.create({
       data: {
         sourceId: source.id,
-        originalText: placeholderTranscript,
-        workspaceText: placeholderTranscript,
-        wordCount: placeholderTranscript.split(/\s+/).length,
+        originalText: transcript,
+        workspaceText: transcript,
+        wordCount: transcript.split(/\s+/).length,
       },
     });
 
@@ -151,6 +175,7 @@ export async function uploadAndTranscribe(formData: FormData) {
       sourceId: source.id,
       transcriptId: transcriptRecord.id,
       fileUrl,
+      originalText: transcript,
     };
   } catch (err) {
     await prisma.source.update({

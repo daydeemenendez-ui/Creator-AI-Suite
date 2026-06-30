@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
-  Link2, Upload, Lock, Copy, Download, RefreshCw, Wand2, Video, FileAudio, ChevronRight, X,
+  Link2, Upload, Lock, Copy, Download, RefreshCw, Wand2, Video, FileAudio, ChevronRight, X, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,18 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-
-const mockTranscription = `[00:00:01] Hola a todos, bienvenidos a este video donde vamos a hablar sobre las mejores estrategias para hacer crecer tu canal de YouTube en 2025.
-
-[00:00:12] En los últimos años, el algoritmo de YouTube ha cambiado dramáticamente, y lo que funcionaba antes ya no es suficiente. Hoy vamos a ver qué necesitas hacer diferente.
-
-[00:00:28] Lo primero y más importante es la retención de audiencia. YouTube premia los videos que mantienen a la gente viendo. Si tus espectadores se van en los primeros 30 segundos, tu video no va a ser recomendado.
-
-[00:00:45] La segunda estrategia es optimizar tu miniatura y título para el CTR. Un buen CTR combinado con alta retención es la fórmula perfecta para el algoritmo.
-
-[00:01:02] Tercer punto: consistencia. No se trata solo de publicar frecuentemente, sino de publicar en los momentos donde tu audiencia está activa.
-
-[00:01:18] Y por último, los primeros 30 minutos después de publicar son cruciales. Necesitas generar engagement inmediato compartiendo en redes sociales y comunidades relevantes.`;
+import { analyzeYouTubeUrl, uploadAndTranscribe } from "@/actions/research";
 
 const aiOutputs = [
   { label: "Ideas de videos",    count: 8 },
@@ -32,26 +21,42 @@ const aiOutputs = [
   { label: "Descripción SEO",    count: 1 },
 ];
 
+interface AnalysisResult {
+  transcriptId: string;
+  sourceId: string;
+  title?: string;
+  channelName?: string;
+  wordCount?: number;
+  originalText: string;
+}
+
 export function ResearchPage() {
   const [url, setUrl] = useState("");
   const [isDragging, setIsDragging] = useState(false);
-  const [isAnalyzed, setIsAnalyzed] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [urlError, setUrlError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState("");
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [workspaceText, setWorkspaceText] = useState("");
+  const [recentAnalyses, setRecentAnalyses] = useState<{ title: string; id: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function isValidYouTubeUrl(value: string) {
-    return /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/.test(value.trim());
+    return /^https?:\/\/(www\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.be\/)[\w-]+/.test(value.trim());
   }
 
-  function handleFileSelect(file: File) {
-    const allowed = ["video/mp4", "audio/mpeg", "audio/wav", "audio/mp3", "video/quicktime"];
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!allowed.includes(file.type) && !["mp4", "mp3", "wav", "m4a"].includes(ext ?? "")) return;
+  const handleFileSelect = useCallback((file: File) => {
+    const allowedExts = ["mp4", "mp3", "wav", "m4a"];
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!allowedExts.includes(ext)) {
+      setUrlError("Formato no soportado. Usa MP4, MP3 o WAV.");
+      return;
+    }
     setSelectedFile(file);
     setUrl("");
     setUrlError("");
-  }
+  }, []);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -60,17 +65,81 @@ export function ResearchPage() {
     if (file) handleFileSelect(file);
   }
 
-  function handleAnalyze() {
+  async function handleAnalyze() {
     if (!selectedFile && !url.trim()) {
       setUrlError("Ingresa una URL de YouTube o sube un archivo.");
       return;
     }
     if (url.trim() && !isValidYouTubeUrl(url)) {
-      setUrlError("La URL no es válida. Usa un enlace de YouTube.");
+      setUrlError("URL no válida. Usa un enlace de YouTube.");
       return;
     }
+
     setUrlError("");
-    setIsAnalyzed(true);
+    setLoading(true);
+    setResult(null);
+
+    try {
+      if (url.trim()) {
+        setLoadingMsg("Obteniendo transcripción del video…");
+        const fd = new FormData();
+        fd.append("url", url.trim());
+        const res = await analyzeYouTubeUrl(fd);
+
+        if ("error" in res) {
+          setUrlError(typeof res.error === "string" ? res.error : "Error al analizar el video.");
+          return;
+        }
+
+        const text = (res as { originalText?: string }).originalText ?? "";
+        const analysis: AnalysisResult = {
+          transcriptId: res.transcriptId!,
+          sourceId: res.sourceId!,
+          title: res.title,
+          wordCount: res.wordCount,
+          originalText: text,
+        };
+        setResult(analysis);
+        setWorkspaceText(text);
+        setRecentAnalyses((prev) => [{ title: res.title ?? url, id: res.sourceId! }, ...prev.slice(0, 4)]);
+      } else if (selectedFile) {
+        setLoadingMsg("Subiendo y procesando archivo…");
+        const fd = new FormData();
+        fd.append("file", selectedFile);
+        const res = await uploadAndTranscribe(fd);
+
+        if ("error" in res) {
+          setUrlError(typeof res.error === "string" ? res.error : "Error al procesar el archivo.");
+          return;
+        }
+
+        const text = (res as { originalText?: string }).originalText ?? `[Archivo: ${selectedFile.name}]\n\nTranscripción no disponible para este formato en el plan actual.`;
+        const analysis: AnalysisResult = {
+          transcriptId: res.transcriptId!,
+          sourceId: res.sourceId!,
+          title: selectedFile.name,
+          originalText: text,
+        };
+        setResult(analysis);
+        setWorkspaceText(text);
+        setRecentAnalyses((prev) => [{ title: selectedFile.name, id: res.sourceId! }, ...prev.slice(0, 4)]);
+      }
+    } finally {
+      setLoading(false);
+      setLoadingMsg("");
+    }
+  }
+
+  function handleReset() {
+    setResult(null);
+    setUrl("");
+    setSelectedFile(null);
+    setUrlError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleCopy() {
+    if (result?.originalText) navigator.clipboard.writeText(result.originalText);
   }
 
   return (
@@ -93,9 +162,24 @@ export function ResearchPage() {
               <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
               <Input
                 value={url}
-                onChange={(e) => { setUrl(e.target.value); setUrlError(""); setSelectedFile(null); }}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setUrlError("");
+                  setSelectedFile(null);
+                }}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData("text").trim();
+                  if (isValidYouTubeUrl(pasted)) {
+                    setTimeout(() => {
+                      setUrl(pasted);
+                      setUrlError("");
+                      setSelectedFile(null);
+                    }, 0);
+                  }
+                }}
                 placeholder="https://youtube.com/watch?v=..."
                 className={`pl-9 bg-[#141414] border-white/10 text-white placeholder:text-zinc-700 text-sm h-9 focus:border-[#FF0033]/40 ${urlError ? "border-red-500/60" : ""}`}
+                disabled={loading}
               />
             </div>
             {urlError && <p className="text-[11px] text-red-400">{urlError}</p>}
@@ -112,7 +196,7 @@ export function ResearchPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".mp4,.mp3,.wav,.m4a,video/mp4,audio/mpeg,audio/wav"
+            accept=".mp4,.mp3,.wav,.m4a"
             className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
           />
@@ -122,8 +206,8 @@ export function ResearchPage() {
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
             onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
+            onClick={() => !loading && fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${
               isDragging
                 ? "border-[#FF0033] bg-[#FF0033]/5"
                 : "border-white/[0.08] hover:border-[#FF0033]/30 hover:bg-[#FF0033]/[0.02]"
@@ -149,8 +233,9 @@ export function ResearchPage() {
               <FileAudio className="w-4 h-4 text-[#FF0033] flex-shrink-0" />
               <span className="text-xs text-zinc-300 truncate flex-1">{selectedFile.name}</span>
               <button
-                onClick={(e) => { e.stopPropagation(); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
                 className="text-zinc-600 hover:text-white transition-colors"
+                disabled={loading}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -163,27 +248,37 @@ export function ResearchPage() {
           )}
 
           <Button
-            className="w-full bg-[#FF0033] hover:bg-[#e8002e] text-white shadow-[0_0_16px_rgba(255,0,51,0.2)] hover:shadow-[0_0_20px_rgba(255,0,51,0.3)] gap-2 transition-all"
+            className="w-full bg-[#FF0033] hover:bg-[#e8002e] text-white shadow-[0_0_16px_rgba(255,0,51,0.2)] hover:shadow-[0_0_20px_rgba(255,0,51,0.3)] gap-2 transition-all disabled:opacity-60"
             onClick={handleAnalyze}
+            disabled={loading}
           >
-            <Wand2 className="w-4 h-4" />
-            Analizar contenido
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {loadingMsg || "Analizando…"}
+              </>
+            ) : (
+              <>
+                <Wand2 className="w-4 h-4" />
+                Analizar contenido
+              </>
+            )}
           </Button>
 
-          {/* Previous analyses */}
-          {isAnalyzed && (
+          {/* Recent analyses */}
+          {recentAnalyses.length > 0 && (
             <div className="space-y-1.5 pt-1">
               <p className="text-[10px] font-semibold text-zinc-700 uppercase tracking-wider">
                 Análisis recientes
               </p>
-              {["YouTube Growth 2025", "SEO Tips for Creators", "Monetization Guide"].map((item) => (
+              {recentAnalyses.map((item) => (
                 <button
-                  key={item}
+                  key={item.id}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/[0.04] text-left transition-colors"
                 >
                   <div className="w-1.5 h-1.5 rounded-full bg-[#FF0033]" />
                   <span className="text-xs text-zinc-500 hover:text-zinc-200 transition-colors flex-1 truncate">
-                    {item}
+                    {item.title}
                   </span>
                   <ChevronRight className="w-3 h-3 text-zinc-700" />
                 </button>
@@ -195,7 +290,17 @@ export function ResearchPage() {
 
       {/* Right Panel */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {isAnalyzed ? (
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-2xl bg-[#FF0033]/10 flex items-center justify-center mx-auto mb-5">
+                <Loader2 className="w-8 h-8 text-[#FF0033] animate-spin" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2 tracking-tight">{loadingMsg}</h3>
+              <p className="text-sm text-zinc-600 max-w-xs">Esto puede tardar unos segundos…</p>
+            </div>
+          </div>
+        ) : result ? (
           <>
             {/* Video info bar */}
             <div className="border-b border-white/[0.07] px-6 py-3 bg-[#0d0d0d]/60 flex items-center gap-4">
@@ -204,15 +309,24 @@ export function ResearchPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate tracking-tight">
-                  10 Estrategias para Crecer en YouTube en 2025
+                  {result.title ?? "Contenido analizado"}
                 </p>
-                <p className="text-xs text-zinc-600">Canal Principal · 12:34 min · 45K vistas</p>
+                <p className="text-xs text-zinc-600">
+                  {result.channelName ? `${result.channelName} · ` : ""}
+                  {result.wordCount ? `${result.wordCount} palabras` : ""}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <Badge className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                   Analizado
                 </Badge>
-                <Button variant="ghost" size="sm" className="text-zinc-600 hover:text-white h-7 px-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-zinc-600 hover:text-white h-7 px-2"
+                  onClick={handleReset}
+                  title="Nuevo análisis"
+                >
                   <RefreshCw className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -249,11 +363,27 @@ export function ResearchPage() {
                       </p>
                     </div>
                     <div className="ml-auto flex gap-2">
-                      <Button variant="ghost" size="sm" className="text-zinc-600 hover:text-white h-7 px-2 gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-zinc-600 hover:text-white h-7 px-2 gap-1.5"
+                        onClick={handleCopy}
+                      >
                         <Copy className="w-3 h-3" />
                         <span className="text-xs">Copiar</span>
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-zinc-600 hover:text-white h-7 px-2 gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-zinc-600 hover:text-white h-7 px-2 gap-1.5"
+                        onClick={() => {
+                          const blob = new Blob([result.originalText], { type: "text/plain" });
+                          const a = document.createElement("a");
+                          a.href = URL.createObjectURL(blob);
+                          a.download = `transcripcion-${result.transcriptId}.txt`;
+                          a.click();
+                        }}
+                      >
                         <Download className="w-3 h-3" />
                         <span className="text-xs">Exportar</span>
                       </Button>
@@ -276,7 +406,7 @@ export function ResearchPage() {
                         <span className="text-[10px] font-semibold text-[#FF0033] tracking-wide">PROTEGIDO</span>
                       </div>
                       <div className="p-5 select-none opacity-70">
-                        {mockTranscription.split("\n\n").map((para, i) => (
+                        {result.originalText.split("\n\n").filter(Boolean).map((para, i) => (
                           <p key={i} className="text-sm text-zinc-500 leading-7 mb-4 font-mono">
                             {para}
                           </p>
@@ -300,7 +430,8 @@ export function ResearchPage() {
                   <Textarea
                     className="flex-1 bg-[#111111] border-white/10 text-zinc-300 text-sm leading-7 resize-none focus:border-[#FF0033]/40 font-mono"
                     placeholder="El contenido analizado aparecerá aquí..."
-                    defaultValue={mockTranscription}
+                    value={workspaceText}
+                    onChange={(e) => setWorkspaceText(e.target.value)}
                   />
                 </div>
               </TabsContent>
