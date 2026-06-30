@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
-  Link2, Upload, Lock, Copy, Download, RefreshCw, Wand2, Video, FileAudio, ChevronRight,
+  Link2, Upload, Lock, Copy, Download, RefreshCw, Wand2, Video, FileAudio, ChevronRight, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,42 @@ export function ResearchPage() {
   const [url, setUrl] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [isAnalyzed, setIsAnalyzed] = useState(true);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [urlError, setUrlError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function isValidYouTubeUrl(value: string) {
+    return /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/.test(value.trim());
+  }
+
+  function handleFileSelect(file: File) {
+    const allowed = ["video/mp4", "audio/mpeg", "audio/wav", "audio/mp3", "video/quicktime"];
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (!allowed.includes(file.type) && !["mp4", "mp3", "wav", "m4a"].includes(ext ?? "")) return;
+    setSelectedFile(file);
+    setUrl("");
+    setUrlError("");
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  }
+
+  function handleAnalyze() {
+    if (!selectedFile && !url.trim()) {
+      setUrlError("Ingresa una URL de YouTube o sube un archivo.");
+      return;
+    }
+    if (url.trim() && !isValidYouTubeUrl(url)) {
+      setUrlError("La URL no es válida. Usa un enlace de YouTube.");
+      return;
+    }
+    setUrlError("");
+    setIsAnalyzed(true);
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -57,11 +93,12 @@ export function ResearchPage() {
               <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
               <Input
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => { setUrl(e.target.value); setUrlError(""); setSelectedFile(null); }}
                 placeholder="https://youtube.com/watch?v=..."
-                className="pl-9 bg-[#141414] border-white/10 text-white placeholder:text-zinc-700 text-sm h-9 focus:border-[#FF0033]/40"
+                className={`pl-9 bg-[#141414] border-white/10 text-white placeholder:text-zinc-700 text-sm h-9 focus:border-[#FF0033]/40 ${urlError ? "border-red-500/60" : ""}`}
               />
             </div>
+            {urlError && <p className="text-[11px] text-red-400">{urlError}</p>}
           </div>
 
           {/* Divider */}
@@ -71,11 +108,21 @@ export function ResearchPage() {
             <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".mp4,.mp3,.wav,.m4a,video/mp4,audio/mpeg,audio/wav"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
+          />
+
           {/* Drag & Drop */}
           <div
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => { e.preventDefault(); setIsDragging(false); }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
               isDragging
                 ? "border-[#FF0033] bg-[#FF0033]/5"
@@ -86,7 +133,7 @@ export function ResearchPage() {
               <Upload className="w-5 h-5 text-[#FF0033]" />
             </div>
             <p className="text-sm font-medium text-zinc-300">Arrastra tu archivo aquí</p>
-            <p className="text-xs text-zinc-600 mt-1">MP4, MP3, WAV — hasta 500MB</p>
+            <p className="text-xs text-zinc-600 mt-1">o haz clic para seleccionar</p>
             <div className="flex items-center justify-center gap-2 mt-3">
               {["MP4", "MP3", "WAV"].map((ext) => (
                 <Badge key={ext} className="text-[10px] bg-white/[0.04] border-white/[0.08] text-zinc-500">
@@ -97,14 +144,27 @@ export function ResearchPage() {
           </div>
 
           {/* File hint */}
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#141414] border border-white/[0.07]">
-            <FileAudio className="w-4 h-4 text-zinc-600" />
-            <span className="text-xs text-zinc-600">Ningún archivo seleccionado</span>
-          </div>
+          {selectedFile ? (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#141414] border border-[#FF0033]/20">
+              <FileAudio className="w-4 h-4 text-[#FF0033] flex-shrink-0" />
+              <span className="text-xs text-zinc-300 truncate flex-1">{selectedFile.name}</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                className="text-zinc-600 hover:text-white transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#141414] border border-white/[0.07]">
+              <FileAudio className="w-4 h-4 text-zinc-600" />
+              <span className="text-xs text-zinc-600">Ningún archivo seleccionado</span>
+            </div>
+          )}
 
           <Button
             className="w-full bg-[#FF0033] hover:bg-[#e8002e] text-white shadow-[0_0_16px_rgba(255,0,51,0.2)] hover:shadow-[0_0_20px_rgba(255,0,51,0.3)] gap-2 transition-all"
-            onClick={() => setIsAnalyzed(true)}
+            onClick={handleAnalyze}
           >
             <Wand2 className="w-4 h-4" />
             Analizar contenido
