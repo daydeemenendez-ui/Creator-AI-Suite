@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { uploadVideoFile } from "@/lib/supabase/storage";
 import { transcribeAudio } from "@/lib/groq";
 import { extractAudioFromVideo } from "@/lib/ffmpeg";
-import { downloadYouTubeAudio } from "@/lib/youtube-audio";
+import { getYouTubeTranscript } from "@/lib/youtube-audio";
 import { z } from "zod";
 
 // ─────────────────────────────────────────────
@@ -52,9 +52,8 @@ export async function analyzeYouTubeUrl(formData: FormData) {
     );
     const oembed = oembedRes.ok ? await oembedRes.json().catch(() => null) : null;
 
-    // 2. Download audio and transcribe with Groq Whisper
-    const { buffer: audioBuffer, fileName: audioFileName } = await downloadYouTubeAudio(videoId);
-    const transcript = await transcribeAudio(audioBuffer, audioFileName, "es");
+    // 2. Extract transcript from YouTube captions
+    const transcript = await getYouTubeTranscript(videoId);
 
     // 3. Persist
     const project = await getOrCreateDefaultProject();

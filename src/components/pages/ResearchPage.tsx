@@ -81,7 +81,7 @@ export function ResearchPage() {
 
     try {
       if (url.trim()) {
-        setLoadingMsg("Descargando audio y transcribiendo con Groq Whisper…");
+        setLoadingMsg("Extrayendo transcripción del video…");
         const fd = new FormData();
         fd.append("url", url.trim());
         const res = await analyzeYouTubeUrl(fd);
