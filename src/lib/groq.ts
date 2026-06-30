@@ -2,10 +2,16 @@
 
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 
-function getApiKey(): string {
-  const key = process.env.GROQ_API_KEY;
-  if (!key) throw new Error("GROQ_API_KEY no configurada. Agrégala en Vercel → Settings → Environment Variables.");
-  return key;
+async function getApiKey(): Promise<string> {
+  if (process.env.GROQ_API_KEY) return process.env.GROQ_API_KEY;
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const row = await prisma.appSettings.findUnique({ where: { key: "groq_api_key" } });
+    if (row?.value) return row.value;
+  } catch {
+    // DB unavailable
+  }
+  throw new Error("Groq API key no configurada. Ve a Configuración → API Keys y añade tu clave de Groq.");
 }
 
 /**
@@ -18,7 +24,7 @@ export async function transcribeAudio(
   fileName: string,
   language?: string
 ): Promise<string> {
-  const apiKey = getApiKey();
+  const apiKey = await getApiKey();
 
   const form = new FormData();
   const blob = new Blob([new Uint8Array(audioBuffer)], { type: guessMime(fileName) });

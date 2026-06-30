@@ -6,6 +6,7 @@ const KEY_MAP: Record<string, string> = {
   minimax:         "minimax_api_key",
   supabase:        "supabase_service_key",
   ttsApi:          "tts_api_key",
+  groq:            "groq_api_key",
   playgroundModel: "playground_model",
 };
 

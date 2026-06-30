@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { uploadVideoFile } from "@/lib/supabase/storage";
 import { transcribeAudio } from "@/lib/groq";
 import { extractAudioFromVideo } from "@/lib/ffmpeg";
+import { downloadYouTubeAudio } from "@/lib/youtube-audio";
 import { z } from "zod";
 
 // ─────────────────────────────────────────────
@@ -32,57 +33,40 @@ const SaveWorkspaceSchema = z.object({
 
 export async function analyzeYouTubeUrl(formData: FormData) {
   const raw = {
-    projectId: formData.get("projectId") as string,
     url: formData.get("url") as string,
   };
 
   const parsed = AnalyzeUrlSchema.safeParse(raw);
   if (!parsed.success) {
-    return { error: parsed.error.flatten().fieldErrors };
+    return { error: "URL inválida. Usa un enlace de YouTube." };
   }
 
   const { url } = parsed.data;
-  const project = await getOrCreateDefaultProject();
-  const projectId = project.id;
-
-  // Create source record
-  const source = await prisma.source.create({
-    data: {
-      projectId,
-      type: "YOUTUBE",
-      url,
-      status: "PROCESSING",
-    },
-  });
+  const videoId = extractVideoId(url);
+  if (!videoId) return { error: "No se pudo extraer el ID del video. Verifica el enlace." };
 
   try {
-    // Extract metadata via oEmbed (no API key needed)
-    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-    const oembedRes = await fetch(oembedUrl);
-    const oembed = oembedRes.ok ? await oembedRes.json() : null;
+    // 1. Metadata via oEmbed (no auth needed)
+    const oembedRes = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
+    );
+    const oembed = oembedRes.ok ? await oembedRes.json().catch(() => null) : null;
 
-    // Extract transcript via youtube-transcript-api compatible endpoint
-    const videoId = extractVideoId(url);
-    if (!videoId) throw new Error("Invalid YouTube URL — could not extract video ID");
+    // 2. Download audio and transcribe with Groq Whisper
+    const { buffer: audioBuffer, fileName: audioFileName } = await downloadYouTubeAudio(videoId);
+    const transcript = await transcribeAudio(audioBuffer, audioFileName, "es");
 
-    const transcript = await fetchYouTubeTranscript(videoId);
-
-    // Update source with metadata
-    await prisma.source.update({
-      where: { id: source.id },
-      data: {
-        title: oembed?.title ?? `Video ${videoId}`,
-        channelName: oembed?.author_name,
-        status: "READY",
-      },
+    // 3. Persist
+    const project = await getOrCreateDefaultProject();
+    const source = await prisma.source.create({
+      data: { projectId: project.id, type: "YOUTUBE", url, status: "READY",
+              title: oembed?.title ?? `Video ${videoId}`, channelName: oembed?.author_name },
     });
-
-    // Store transcript — originalText is IMMUTABLE, never modified after this point
     const transcriptRecord = await prisma.transcript.create({
       data: {
         sourceId: source.id,
         originalText: transcript,
-        workspaceText: transcript, // starts as copy, user can edit workspace
+        workspaceText: transcript,
         language: "es",
         wordCount: transcript.split(/\s+/).length,
       },
@@ -93,15 +77,11 @@ export async function analyzeYouTubeUrl(formData: FormData) {
       sourceId: source.id,
       transcriptId: transcriptRecord.id,
       title: oembed?.title ?? `Video ${videoId}`,
-      channelName: oembed?.author_name ?? null,
+      channelName: (oembed?.author_name as string) ?? null,
       wordCount: transcriptRecord.wordCount,
       originalText: transcript,
     };
   } catch (err) {
-    await prisma.source.update({
-      where: { id: source.id },
-      data: { status: "ERROR" },
-    });
     return { error: String(err) };
   }
 }
@@ -258,46 +238,3 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
-async function fetchYouTubeTranscript(videoId: string): Promise<string> {
-  // Fetch captions via YouTube's timedtext API (no auth required for public videos)
-  const captionUrl = `https://www.youtube.com/api/timedtext?lang=es&v=${videoId}&fmt=json3`;
-  const res = await fetch(captionUrl);
-
-  if (res.ok) {
-    const data = await res.json();
-    if (data?.events?.length) {
-      const text = data.events
-        .filter((e: { segs?: unknown[] }) => e.segs)
-        .map((e: { segs: Array<{ utf8: string }> }) =>
-          e.segs.map((s) => s.utf8).join("")
-        )
-        .join(" ")
-        .replace(/\n/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (text.length > 50) return text;
-    }
-  }
-
-  // Fallback: try English
-  const enRes = await fetch(
-    `https://www.youtube.com/api/timedtext?lang=en&v=${videoId}&fmt=json3`
-  );
-  if (enRes.ok) {
-    const data = await enRes.json();
-    if (data?.events?.length) {
-      return data.events
-        .filter((e: { segs?: unknown[] }) => e.segs)
-        .map((e: { segs: Array<{ utf8: string }> }) =>
-          e.segs.map((s) => s.utf8).join("")
-        )
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
-    }
-  }
-
-  throw new Error(
-    "Could not fetch transcript. The video may not have captions enabled."
-  );
-}

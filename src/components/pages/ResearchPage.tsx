@@ -81,7 +81,7 @@ export function ResearchPage() {
 
     try {
       if (url.trim()) {
-        setLoadingMsg("Obteniendo transcripción del video…");
+        setLoadingMsg("Descargando audio y transcribiendo con Groq Whisper…");
         const fd = new FormData();
         fd.append("url", url.trim());
         const res = await analyzeYouTubeUrl(fd);
@@ -92,18 +92,18 @@ export function ResearchPage() {
         }
 
         const text = (res as { originalText?: string }).originalText ?? "";
-        const analysis: AnalysisResult = {
+        setResult({
           transcriptId: res.transcriptId!,
           sourceId: res.sourceId!,
           title: res.title,
+          channelName: (res as { channelName?: string }).channelName,
           wordCount: res.wordCount,
           originalText: text,
-        };
-        setResult(analysis);
+        });
         setWorkspaceText(text);
         setRecentAnalyses((prev) => [{ title: res.title ?? url, id: res.sourceId! }, ...prev.slice(0, 4)]);
       } else if (selectedFile) {
-        setLoadingMsg("Subiendo y procesando archivo…");
+        setLoadingMsg("Subiendo y transcribiendo con Groq Whisper…");
         const fd = new FormData();
         fd.append("file", selectedFile);
         const res = await uploadAndTranscribe(fd);
@@ -113,17 +113,18 @@ export function ResearchPage() {
           return;
         }
 
-        const text = (res as { originalText?: string }).originalText ?? `[Archivo: ${selectedFile.name}]\n\nTranscripción no disponible para este formato en el plan actual.`;
-        const analysis: AnalysisResult = {
+        const text = (res as { originalText?: string }).originalText ?? "";
+        setResult({
           transcriptId: res.transcriptId!,
           sourceId: res.sourceId!,
           title: selectedFile.name,
           originalText: text,
-        };
-        setResult(analysis);
+        });
         setWorkspaceText(text);
         setRecentAnalyses((prev) => [{ title: selectedFile.name, id: res.sourceId! }, ...prev.slice(0, 4)]);
       }
+    } catch (err) {
+      setUrlError(`Error inesperado: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
       setLoadingMsg("");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Key, Brain, Download, Save, Eye, EyeOff, Check, Mic, Sparkles } from "lucide-react";
+import { User, Key, Brain, Download, Save, Eye, EyeOff, Check, Mic, Sparkles, Zap } from "lucide-react";
 import { useGlobalModel } from "@/hooks/useGlobalModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ export function SettingsPage() {
   const [minimax, setMinimaxKey] = useState("");
   const [supabase, setSupabase] = useState("");
   const [ttsApi, setTtsApi] = useState("");
+  const [groq, setGroq] = useState("");
   const [keyStatus, setKeyStatus] = useState<Record<string, string>>({});
   const [language, setLanguage] = useState("es");
   const [tone, setTone] = useState("profesional");
@@ -46,7 +47,7 @@ export function SettingsPage() {
     await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ openrouter, minimax, supabase, ttsApi }),
+      body: JSON.stringify({ openrouter, minimax, supabase, ttsApi, groq }),
     });
     // Refresh status
     const status = await fetch("/api/settings").then((r) => r.json()) as Record<string, string>;
@@ -163,6 +164,43 @@ export function SettingsPage() {
                   </div>
                 </Card>
               ))}
+
+              {/* GROQ — Research Studio transcription */}
+              <Card className="bg-[#141414] border-white/[0.08] p-5 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#FF0033]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Zap className="w-4 h-4 text-[#FF0033]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Groq</p>
+                    <p className="text-xs text-zinc-600 mt-0.5">
+                      Para transcripción de videos y audio con Whisper en Research Studio. Tier gratis disponible en{" "}
+                      <span className="text-zinc-400">console.groq.com</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="relative">
+                  <Input
+                    type={showKeys["groq"] ? "text" : "password"}
+                    value={groq}
+                    onChange={(e) => setGroq(e.target.value)}
+                    placeholder="gsk_..."
+                    className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-800 focus:border-[#FF0033]/40 pr-10 font-mono text-xs"
+                  />
+                  <button
+                    onClick={() => toggleKey("groq")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-white transition-colors"
+                  >
+                    {showKeys["groq"] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${keyStatus["groq"] === "set" || groq ? "bg-emerald-400" : "bg-zinc-700"}`} />
+                  <span className="text-[11px] text-zinc-600">
+                    {keyStatus["groq"] === "set" && !groq ? "Configurado ✓" : groq ? "Listo para guardar" : "No configurado — necesario para transcribir archivos"}
+                  </span>
+                </div>
+              </Card>
 
               {/* TTS API — Voice Studio only */}
               <Card className="bg-[#141414] border-white/[0.08] p-5 space-y-3">
