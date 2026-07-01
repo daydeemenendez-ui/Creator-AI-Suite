@@ -72,6 +72,12 @@ export function ResearchPage() {
       fd.append("file", selectedFile);
 
       const http = await fetch("/api/transcribe", { method: "POST", body: fd });
+      const contentType = http.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        const text = await http.text();
+        setError(`Error del servidor (${http.status}): ${text.slice(0, 200)}`);
+        return;
+      }
       const res = await http.json() as { error?: string; sourceId?: string; transcriptId?: string; title?: string; originalText?: string; wordCount?: number };
 
       if (res.error) {

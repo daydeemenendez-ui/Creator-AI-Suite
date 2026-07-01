@@ -4,6 +4,13 @@ import { getYouTubeTranscript } from "@/lib/youtube-audio";
 import { prisma } from "@/lib/prisma";
 
 export const maxDuration = 60;
+export const config = { api: { bodyParser: false } };
+// Increase body size limit to 30 MB for audio/video uploads
+export const fetchCache = "force-no-store";
+
+// Next.js App Router: set request body size limit
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 // ── POST /api/transcribe ──────────────────────────────────────────────────────
 // body: FormData with either { type: "url", url: string }
