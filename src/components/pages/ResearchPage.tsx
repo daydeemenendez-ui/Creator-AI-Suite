@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   Upload, Lock, Copy, Download, RefreshCw, Wand2, Video, FileAudio, ChevronRight, X, Loader2,
 } from "lucide-react";
@@ -67,11 +68,30 @@ export function ResearchPage() {
     setResult(null);
 
     try {
-      const fd = new FormData();
-      fd.append("type", "file");
-      fd.append("file", selectedFile);
+      // 1. Upload directly to Supabase Storage (bypasses Vercel's 4.5MB body limit)
+      const supabase = createClient();
+      const bucket = "creator-audios";
+      const storagePath = `audio/${Date.now()}-${selectedFile.name}`;
 
-      const http = await fetch("/api/transcribe", { method: "POST", body: fd });
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(storagePath, selectedFile, { upsert: false });
+
+      if (uploadError) {
+        setError(`Error al subir el archivo: ${uploadError.message}`);
+        return;
+      }
+
+      // 2. Ask the server to download from Storage and transcribe with Groq
+      const http = await fetch("/api/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "storage-path", path: storagePath, fileName: selectedFile.name }),
+      });
+
+      // Clean up storage file after transcription (best-effort)
+      supabase.storage.from(bucket).remove([storagePath]).catch(() => {});
+
       const contentType = http.headers.get("content-type") ?? "";
       if (!contentType.includes("application/json")) {
         const text = await http.text();
