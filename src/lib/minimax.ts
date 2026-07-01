@@ -120,17 +120,45 @@ export interface CloneVoiceResult {
 }
 
 export async function cloneVoice(
-  audioUrl: string,
+  audioBuffer: Uint8Array,
+  fileName: string,
   voiceName: string
 ): Promise<CloneVoiceResult> {
   const apiKey = await resolveApiKey();
+
+  // Step 1: upload the sample via the Files API to get a file_id.
+  // voice_clone only accepts a file_id (or a pre-registered audio_url) —
+  // it does not take multipart uploads or arbitrary external URLs directly.
+  const uploadForm = new FormData();
+  uploadForm.append("purpose", "voice_clone");
+  const blob = new Blob([audioBuffer.buffer as ArrayBuffer], { type: "audio/mpeg" });
+  uploadForm.append("file", blob, fileName);
+
+  const uploadRes = await fetch(`${BASE_URL}/files/upload?GroupId=${GROUP_ID}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: uploadForm,
+  });
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.text();
+    throw new Error(`MiniMax file upload error ${uploadRes.status}: ${err}`);
+  }
+
+  const uploadData = await uploadRes.json();
+  const fileId = uploadData.file?.file_id;
+  if (!fileId) {
+    throw new Error(
+      `MiniMax file upload failed: ${uploadData.base_resp?.status_msg ?? "no file_id returned"}`
+    );
+  }
+
   // MiniMax's voice_clone response doesn't echo back voice_id, so we generate
   // it ourselves (must be unique, MiniMax requires alnum/underscore) and send
   // the same value in the request — that's the id we use going forward.
   const voiceId = `${voiceName.replace(/\s+/g, "_").toLowerCase().replace(/[^a-z0-9_]/g, "")}_${Date.now()}`;
 
-  // voice_clone expects JSON with either file_id (from the Files API) or a
-  // publicly reachable audio_url — it does not accept multipart file uploads.
+  // Step 2: clone the voice using that file_id.
   const res = await fetch(`${BASE_URL}/voice_clone?GroupId=${GROUP_ID}`, {
     method: "POST",
     headers: {
@@ -138,8 +166,8 @@ export async function cloneVoice(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
+      file_id: fileId,
       voice_id: voiceId,
-      audio_url: audioUrl,
     }),
   });
 

@@ -48,9 +48,10 @@ export async function createVoiceClone(formData: FormData) {
       "audio/mpeg"
     );
 
-    // Clone voice via MiniMax (needs a publicly reachable URL, not a raw buffer)
+    // Clone voice via MiniMax
     const { voiceId: miniMaxVoiceId, status } = await cloneVoice(
-      sourceFileUrl,
+      audioBuffer,
+      file.name,
       name
     );
 
