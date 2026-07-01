@@ -36,7 +36,31 @@ export async function POST() {
         : "existed but was private — set to public";
     }
 
-    return NextResponse.json({ results });
+    // Diagnostic: list what's actually inside creator-audios/audio and try a
+    // direct signed/service-role read of the most recent object
+    const audioBucket = process.env.SUPABASE_BUCKET_AUDIOS ?? "creator-audios";
+    const { data: listing, error: listError } = await supabase.storage
+      .from(audioBucket)
+      .list("audio", { limit: 5, sortBy: { column: "created_at", order: "desc" } });
+
+    let downloadCheck: string;
+    if (listing && listing.length > 0) {
+      const path = `audio/${listing[0].name}`;
+      const { data: blob, error: dlError } = await supabase.storage.from(audioBucket).download(path);
+      downloadCheck = dlError
+        ? `download error for ${path}: ${dlError.message}`
+        : `download OK for ${path}, size=${blob?.size ?? "?"}`;
+    } else {
+      downloadCheck = `list error or empty: ${listError?.message ?? "no files found"}`;
+    }
+
+    return NextResponse.json({
+      results,
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      listing,
+      listError: listError?.message ?? null,
+      downloadCheck,
+    });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
