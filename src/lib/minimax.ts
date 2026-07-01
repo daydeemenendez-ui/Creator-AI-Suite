@@ -120,8 +120,7 @@ export interface CloneVoiceResult {
 }
 
 export async function cloneVoice(
-  audioBuffer: Uint8Array,
-  fileName: string,
+  audioUrl: string,
   voiceName: string
 ): Promise<CloneVoiceResult> {
   const apiKey = await resolveApiKey();
@@ -130,15 +129,18 @@ export async function cloneVoice(
   // the same value in the request — that's the id we use going forward.
   const voiceId = `${voiceName.replace(/\s+/g, "_").toLowerCase().replace(/[^a-z0-9_]/g, "")}_${Date.now()}`;
 
-  const formData = new FormData();
-  const blob = new Blob([audioBuffer.buffer as ArrayBuffer], { type: "audio/mpeg" });
-  formData.append("file", blob, fileName);
-  formData.append("voice_id", voiceId);
-
+  // voice_clone expects JSON with either file_id (from the Files API) or a
+  // publicly reachable audio_url — it does not accept multipart file uploads.
   const res = await fetch(`${BASE_URL}/voice_clone?GroupId=${GROUP_ID}`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: formData,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      voice_id: voiceId,
+      audio_url: audioUrl,
+    }),
   });
 
   if (!res.ok) {
