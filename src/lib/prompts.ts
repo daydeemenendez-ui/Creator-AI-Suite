@@ -156,6 +156,20 @@ REQUISITOS:
 Responde ÚNICAMENTE con el texto, sin explicaciones ni títulos.
 `,
 
+  VOICE_PERSONALITY_FROM_TRANSCRIPT: (transcript: string) => `
+Eres un director de casting de voz. A continuación tienes la transcripción de una muestra de audio de una persona real (lo que dijo, no cómo lo dijo).
+
+TRANSCRIPCIÓN DE LA MUESTRA:
+${transcript}
+
+TAREA: A partir de las palabras que eligió, su vocabulario, jerga, forma de construir las frases y el tema del que habla, infiere y describe en 2-3 oraciones la personalidad de esta voz para usarla como guía de estilo en futuras generaciones de audio (por ejemplo: nivel de formalidad, energía, público al que se dirige, muletillas o frases características, tono general).
+
+REGLAS:
+- Basa la descripción SOLO en pistas razonables del texto (vocabulario, registro, estructura de frases, tema), no inventes hechos biográficos
+- Escribe en segunda persona, como si describieras "cómo habla esta voz"
+- Responde ÚNICAMENTE con la descripción, sin explicaciones ni encabezados
+`,
+
   EMAIL: (transcript: string, channelName = "tu canal") => `
 Eres copywriter especializado en email marketing para creadores de contenido.
 

@@ -238,6 +238,100 @@ export async function previewAudioChunks(formData: FormData) {
 }
 
 // ─────────────────────────────────────────────
+// SAMPLE TRANSCRIPT (shared by personality analysis + fidelity comparison)
+// ─────────────────────────────────────────────
+
+async function ensureSampleTranscript(profile: {
+  id: string;
+  sourceFileUrl: string | null;
+  sampleTranscript: string | null;
+}): Promise<string> {
+  if (profile.sampleTranscript) return profile.sampleTranscript;
+  if (!profile.sourceFileUrl) throw new Error("Esta voz no tiene audio de muestra guardado.");
+
+  const { transcribeAudio } = await import("@/lib/groq");
+  const res = await fetch(profile.sourceFileUrl);
+  if (!res.ok) throw new Error(`No se pudo descargar la muestra de audio (${res.status}).`);
+  const buffer = Buffer.from(await res.arrayBuffer());
+
+  const transcript = await transcribeAudio(buffer, "sample.mp3");
+  if (!transcript.trim()) throw new Error("No se pudo transcribir la muestra de audio.");
+
+  await prisma.voiceProfile.update({
+    where: { id: profile.id },
+    data: { sampleTranscript: transcript },
+  });
+
+  return transcript;
+}
+
+// ─────────────────────────────────────────────
+// GENERATE PERSONALITY FROM THE VOICE SAMPLE ITSELF
+// ─────────────────────────────────────────────
+
+export async function generatePersonalityFromAudio(voiceProfileId: string) {
+  try {
+    const profile = await prisma.voiceProfile.findUnique({ where: { id: voiceProfileId } });
+    if (!profile) return { error: "Voice profile not found" };
+
+    const transcript = await ensureSampleTranscript(profile);
+
+    const { chat } = await import("@/lib/openrouter");
+    const { PROMPTS } = await import("@/lib/prompts");
+    const personality = await chat(
+      [{ role: "user", content: PROMPTS.VOICE_PERSONALITY_FROM_TRANSCRIPT(transcript) }],
+      { temperature: 0.6 }
+    );
+
+    return { success: true, personality: personality.trim(), transcript };
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
+// ─────────────────────────────────────────────
+// FIDELITY CHECK — clone reading the exact original sample text
+// ─────────────────────────────────────────────
+
+export async function getOrCreateComparisonAudio(voiceProfileId: string) {
+  try {
+    const profile = await prisma.voiceProfile.findUnique({ where: { id: voiceProfileId } });
+    if (!profile) return { error: "Voice profile not found" };
+    if (profile.status !== "READY") return { error: "Esta voz todavía se está procesando." };
+
+    if (profile.comparisonAudioUrl) {
+      return {
+        success: true,
+        audioUrl: profile.comparisonAudioUrl,
+        sourceFileUrl: profile.sourceFileUrl,
+        transcript: profile.sampleTranscript,
+        cached: true,
+      };
+    }
+
+    const transcript = await ensureSampleTranscript(profile);
+
+    const buffer = await textToSpeech({ voiceId: profile.miniMaxVoiceId, text: transcript });
+    const audioUrl = await uploadAudioFile(buffer, `comparison-${profile.id}.mp3`, "audio/mpeg");
+
+    await prisma.voiceProfile.update({
+      where: { id: profile.id },
+      data: { comparisonAudioUrl: audioUrl },
+    });
+
+    return {
+      success: true,
+      audioUrl,
+      sourceFileUrl: profile.sourceFileUrl,
+      transcript,
+      cached: false,
+    };
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
+// ─────────────────────────────────────────────
 // UPDATE VOICE PERSONALITY
 // ─────────────────────────────────────────────
 

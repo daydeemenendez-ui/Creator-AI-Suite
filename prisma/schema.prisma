@@ -157,6 +157,8 @@ model VoiceProfile {
   personality    String?             // Free-text voice character prompt for AI rewrite/compose
   miniMaxVoiceId String      @unique // returned by MiniMax clone API
   sourceFileUrl  String?             // Supabase Storage — original audio
+  sampleTranscript   String?         // Whisper transcript of the original sample
+  comparisonAudioUrl String?         // cloned voice reading sampleTranscript — cached fidelity check
   sampleCount    Int         @default(0)
   status         VoiceStatus @default(PROCESSING)
   createdAt      DateTime    @default(now())

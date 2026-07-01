@@ -57,6 +57,8 @@ interface ClonedVoice {
   duration: string;
   language: string;
   personality?: string;
+  sourceFileUrl?: string | null;
+  comparisonAudioUrl?: string | null;
 }
 
 interface SavedGeneration {
@@ -262,10 +264,15 @@ interface PersonalityDialogProps {
 function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogProps) {
   const [value, setValue] = useState(voice.personality ?? "");
   const [isSaving, setIsSaving] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   // Sync when the dialog opens for a different voice
   useEffect(() => {
-    if (open) setValue(voice.personality ?? "");
+    if (open) {
+      setValue(voice.personality ?? "");
+      setAnalyzeError(null);
+    }
   }, [open, voice.personality, voice.id]);
 
   const handleSave = async () => {
@@ -277,6 +284,29 @@ function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogPr
       setIsSaving(false);
     }
   };
+
+  const handleAnalyzeAudio = async () => {
+    setIsAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const res = await fetch("/api/voice/analyze-personality", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voiceProfileId: voice.id }),
+      });
+      const data = (await res.json()) as { personality?: string; error?: string };
+      if (!res.ok || data.error || !data.personality) {
+        throw new Error(data.error ?? "No se pudo analizar el audio.");
+      }
+      setValue(data.personality);
+    } catch (err) {
+      setAnalyzeError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const hasSample = Boolean(voice.sourceFileUrl);
 
   return (
     <Dialog open={open} onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
@@ -290,6 +320,29 @@ function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogPr
           </p>
         </DialogHeader>
 
+        {hasSample && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleAnalyzeAudio}
+            disabled={isAnalyzing}
+            className="text-xs text-[#FF0033] border border-[#FF0033]/30 hover:border-[#FF0033]/60 gap-1.5 h-7 self-start"
+          >
+            {isAnalyzing ? (
+              <div className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+            ) : (
+              <Mic className="w-3 h-3" />
+            )}
+            {isAnalyzing ? "Escuchando el audio..." : "Generar escuchando el audio"}
+          </Button>
+        )}
+
+        {analyzeError && (
+          <p className="text-[11px] text-red-400 bg-red-950/20 border border-red-900/40 rounded-lg px-3 py-2">
+            {analyzeError}
+          </p>
+        )}
+
         <Textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -299,7 +352,9 @@ function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogPr
         />
 
         <p className="text-[10px] text-zinc-600">
-          Esta descripción guiará a la IA al reescribir o componer texto en esta voz.
+          {hasSample
+            ? "Genera la descripción escuchando la muestra de audio, o escríbela tú mismo. Esta descripción guiará a la IA al reescribir o componer texto en esta voz."
+            : "Esta descripción guiará a la IA al reescribir o componer texto en esta voz."}
         </p>
 
         <DialogFooter className="border-white/[0.07] bg-transparent">
@@ -428,6 +483,8 @@ export function VoicePage() {
             personality: string | null;
             sampleCount: number;
             status: "PROCESSING" | "READY" | "ERROR";
+            sourceFileUrl: string | null;
+            comparisonAudioUrl: string | null;
           }[];
         };
         if (cancelled || !data.profiles?.length) return;
@@ -441,6 +498,8 @@ export function VoicePage() {
           duration: "—",
           language: "ES",
           personality: p.personality ?? undefined,
+          sourceFileUrl: p.sourceFileUrl,
+          comparisonAudioUrl: p.comparisonAudioUrl,
         }));
 
         setVoices(realVoices);
@@ -569,6 +628,63 @@ export function VoicePage() {
       setDeletingGenerationId(null);
     }
   };
+
+  // Fidelity check — clone reading the exact same text as the original sample.
+  // The backend caches this per voice, so re-selecting a voice is instant
+  // and only the very first time actually transcribes + synthesizes.
+  const [comparison, setComparison] = useState<{
+    audioUrl: string;
+    sourceFileUrl: string | null;
+    transcript: string | null;
+  } | null>(null);
+  const [isComparing, setIsComparing] = useState(false);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setComparison(null);
+    setComparisonError(null);
+
+    // Demo/mock voices have no real profile or sample audio behind them —
+    // only attempt this for voices loaded from the DB
+    const voice = voices.find((v) => v.id === selectedVoice);
+    if (!selectedVoice || !voice || !("sourceFileUrl" in voice)) return;
+
+    setIsComparing(true);
+
+    (async () => {
+      try {
+        const res = await fetch("/api/voice/compare", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ voiceProfileId: selectedVoice }),
+        });
+        const data = (await res.json()) as {
+          success?: boolean;
+          audioUrl?: string;
+          sourceFileUrl?: string | null;
+          transcript?: string | null;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || data.error || !data.audioUrl) {
+          setComparisonError(data.error ?? "No se pudo generar la comparación.");
+          return;
+        }
+        setComparison({
+          audioUrl: data.audioUrl,
+          sourceFileUrl: data.sourceFileUrl ?? null,
+          transcript: data.transcript ?? null,
+        });
+      } catch {
+        if (!cancelled) setComparisonError("Error de conexión al generar la comparación.");
+      } finally {
+        if (!cancelled) setIsComparing(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedVoice]);
 
   const waveHeights = useMemo(
     () => Array.from({ length: 80 }, (_, i) => 20 + Math.sin(i * 0.4) * 15 + ((i * 7919) % 10)),
@@ -1075,6 +1191,40 @@ export function VoicePage() {
 
           {/* Text editor */}
           <div className="flex-1 flex flex-col overflow-hidden p-6 gap-4">
+            {/* Fidelity check — original sample vs. the clone reading the same words */}
+            {(isComparing || comparison || comparisonError) && (
+              <Card className="bg-[#141414] border-white/[0.08] p-3 flex-shrink-0">
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
+                  Fidelidad de la clonación
+                </p>
+                {isComparing && (
+                  <div className="flex items-center gap-2 text-xs text-zinc-500">
+                    <div className="w-3.5 h-3.5 border-2 border-zinc-600 border-t-transparent rounded-full animate-spin" />
+                    Generando comparación con el audio original...
+                  </div>
+                )}
+                {!isComparing && comparisonError && (
+                  <p className="text-[11px] text-zinc-600">{comparisonError}</p>
+                )}
+                {!isComparing && comparison && (
+                  <div className="flex items-center gap-6 flex-wrap">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-zinc-500">Original</span>
+                      {comparison.sourceFileUrl ? (
+                        <audio controls src={comparison.sourceFileUrl} className="h-8" />
+                      ) : (
+                        <span className="text-[10px] text-zinc-700">No disponible</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-[#FF0033]/80">Voz clonada (mismo texto)</span>
+                      <audio controls src={comparison.audioUrl} className="h-8" />
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
+
             {/* Header row */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
