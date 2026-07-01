@@ -36,9 +36,12 @@ export async function createVoiceClone(formData: FormData) {
     // eslint-disable-next-line prefer-const
     let audioBuffer: Buffer = Buffer.from(await file.arrayBuffer() as ArrayBuffer);
 
-    // Extract audio from video if MP4
+    // Extract audio from video if MP4 — this always yields mp3 output, so the
+    // filename we send onward must reflect that, not the original .mp4 name
+    let audioExt = ext;
     if (file.type === "video/mp4" || ext === "mp4") {
       audioBuffer = (await extractAudioFromVideo(audioBuffer, "mp4")) as Buffer;
+      audioExt = "mp3";
     }
 
     // Upload source audio to storage
@@ -48,10 +51,11 @@ export async function createVoiceClone(formData: FormData) {
       "audio/mpeg"
     );
 
-    // Clone voice via MiniMax
+    // Clone voice via MiniMax — filename extension must match the actual
+    // audio content, since MiniMax validates it
     const { voiceId: miniMaxVoiceId, status } = await cloneVoice(
       audioBuffer,
-      file.name,
+      `voice-sample-${Date.now()}.${audioExt}`,
       name
     );
 
