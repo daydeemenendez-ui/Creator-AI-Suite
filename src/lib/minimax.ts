@@ -197,6 +197,7 @@ export interface TTSOptions {
   speed?: number;
   vol?: number;
   pitch?: number;
+  model?: string; // defaults to the higher-fidelity HD model over the turbo one
 }
 
 export async function textToSpeech(options: TTSOptions): Promise<Buffer<ArrayBuffer>> {
@@ -209,7 +210,7 @@ export async function textToSpeech(options: TTSOptions): Promise<Buffer<ArrayBuf
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "speech-01-turbo",
+      model: options.model ?? "speech-02-hd",
       text: options.text,
       stream: false,
       voice_setting: {
@@ -219,8 +220,8 @@ export async function textToSpeech(options: TTSOptions): Promise<Buffer<ArrayBuf
         pitch: options.pitch ?? 0,
       },
       audio_setting: {
-        sample_rate: 32000,
-        bitrate: 128000,
+        sample_rate: 44100,
+        bitrate: 256000,
         format: "mp3",
       },
     }),
