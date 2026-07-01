@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeYouTubeUrl, uploadAndTranscribe, listSources } from "@/actions/research";
+import { analyzeYouTubeUrl, uploadAndTranscribe } from "@/actions/research";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -18,10 +18,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const projectId = searchParams.get("projectId");
-  if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
-  const result = await listSources(projectId);
-  return NextResponse.json(result);
+export async function GET() {
+  return NextResponse.json({ ok: true });
 }
