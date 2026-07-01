@@ -61,11 +61,37 @@ export async function POST(req: NextRequest) {
           vol: preset.volume,
         });
 
+        // Persist this generation so it shows up in the history and
+        // survives a refresh — best-effort, playback still works if this fails
+        let generationId: string | null = null;
+        try {
+          const { prisma } = await import("@/lib/prisma");
+          const { uploadAudioFile } = await import("@/lib/supabase/storage");
+          const audioUrl = await uploadAudioFile(
+            audioBuffer,
+            `generation-${Date.now()}.mp3`,
+            "audio/mpeg"
+          );
+          const generation = await prisma.audioGeneration.create({
+            data: {
+              voiceId: profile.id,
+              textInput: text,
+              audioUrl,
+              status: "READY",
+              durationMs: Math.ceil((text.split(/\s+/).length / 150) * 60 * 1000),
+            },
+          });
+          generationId = generation.id;
+        } catch {
+          // DB/storage unavailable — still return the audio for playback
+        }
+
         return new NextResponse(audioBuffer.buffer as ArrayBuffer, {
           status: 200,
           headers: {
             "Content-Type": "audio/mpeg",
             "Content-Disposition": 'attachment; filename="tts-output.mp3"',
+            ...(generationId ? { "X-Generation-Id": generationId } : {}),
           },
         });
       }

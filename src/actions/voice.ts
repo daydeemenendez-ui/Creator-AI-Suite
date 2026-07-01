@@ -313,9 +313,12 @@ export async function listVoiceProfiles() {
 // LIST AUDIO GENERATIONS
 // ─────────────────────────────────────────────
 
-export async function listAudioGenerations(projectId?: string) {
+export async function listAudioGenerations(filter?: { projectId?: string; voiceId?: string }) {
   const generations = await prisma.audioGeneration.findMany({
-    where: projectId ? { projectId } : {},
+    where: {
+      ...(filter?.projectId ? { projectId: filter.projectId } : {}),
+      ...(filter?.voiceId ? { voiceId: filter.voiceId } : {}),
+    },
     orderBy: { createdAt: "desc" },
     take: 20,
     include: {
@@ -323,6 +326,19 @@ export async function listAudioGenerations(projectId?: string) {
     },
   });
   return { generations };
+}
+
+// ─────────────────────────────────────────────
+// DELETE AUDIO GENERATION
+// ─────────────────────────────────────────────
+
+export async function deleteAudioGeneration(generationId: string) {
+  try {
+    await prisma.audioGeneration.delete({ where: { id: generationId } });
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
 }
 
 // ─────────────────────────────────────────────

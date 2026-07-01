@@ -4,6 +4,7 @@ import {
   listAudioGenerations,
   pollVoiceStatus,
   deleteVoiceProfile,
+  deleteAudioGeneration,
   updateVoicePersonality,
 } from "@/actions/voice";
 
@@ -17,7 +18,8 @@ export async function GET(req: NextRequest) {
 
   if (type === "generations") {
     const projectId = searchParams.get("projectId") ?? undefined;
-    return NextResponse.json(await listAudioGenerations(projectId));
+    const voiceId = searchParams.get("voiceId") ?? undefined;
+    return NextResponse.json(await listAudioGenerations({ projectId, voiceId }));
   }
 
   if (type === "status") {
@@ -40,7 +42,12 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
+  const type = searchParams.get("type") ?? "profile";
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  const result = await deleteVoiceProfile(id);
+
+  const result = type === "generation"
+    ? await deleteAudioGeneration(id)
+    : await deleteVoiceProfile(id);
+
   return NextResponse.json(result, { status: (result as { error?: string }).error ? 400 : 200 });
 }

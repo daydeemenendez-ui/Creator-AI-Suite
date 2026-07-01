@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Undo2,
   AlertCircle,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,6 +57,15 @@ interface ClonedVoice {
   duration: string;
   language: string;
   personality?: string;
+}
+
+interface SavedGeneration {
+  id: string;
+  textInput: string;
+  audioUrl: string | null;
+  durationMs: number | null;
+  status: string;
+  createdAt: string;
 }
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -524,6 +534,42 @@ export function VoicePage() {
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
   const [relativeTime, setRelativeTime] = useState("");
 
+  // Generation history — persisted server-side, one list per voice
+  const [history, setHistory] = useState<SavedGeneration[]>([]);
+  const [deletingGenerationId, setDeletingGenerationId] = useState<string | null>(null);
+
+  const fetchHistory = useCallback(async (voiceId: string) => {
+    if (!voiceId) { setHistory([]); return; }
+    try {
+      const res = await fetch(`/api/voice?type=generations&voiceId=${encodeURIComponent(voiceId)}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as { generations?: SavedGeneration[] };
+      setHistory(data.generations ?? []);
+    } catch {
+      // Keep whatever history was already shown
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchHistory(selectedVoice);
+  }, [selectedVoice, fetchHistory]);
+
+  const handleDeleteGeneration = async (generationId: string) => {
+    setDeletingGenerationId(generationId);
+    try {
+      const res = await fetch(`/api/voice?type=generation&id=${encodeURIComponent(generationId)}`, {
+        method: "DELETE",
+      });
+      const data = (await res.json()) as { success?: boolean; error?: string };
+      if (!res.ok || data.error) throw new Error(data.error ?? `Error ${res.status}`);
+      setHistory((prev) => prev.filter((g) => g.id !== generationId));
+    } catch {
+      // Leave it in the list — user can retry
+    } finally {
+      setDeletingGenerationId(null);
+    }
+  };
+
   const waveHeights = useMemo(
     () => Array.from({ length: 80 }, (_, i) => 20 + Math.sin(i * 0.4) * 15 + ((i * 7919) % 10)),
     []
@@ -595,6 +641,7 @@ export function VoicePage() {
 
       setIsGenerated(true);
       setGeneratedAt(new Date());
+      void fetchHistory(selectedVoice);
     } catch (err) {
       setGenerateError(String(err));
     } finally {
@@ -1292,6 +1339,46 @@ export function VoicePage() {
                   </button>
                 </div>
               </Card>
+            )}
+
+            {/* Generation history — persisted, survives refresh */}
+            {history.length > 0 && (
+              <div className="flex flex-col gap-2 min-h-0">
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <History className="w-3 h-3" />
+                  Historial de audio generado ({history.length})
+                </p>
+                <div className="flex flex-col gap-2 overflow-y-auto max-h-48 pr-1">
+                  {history.map((gen) => (
+                    <div
+                      key={gen.id}
+                      className="bg-[#141414] border border-white/[0.07] rounded-lg px-3 py-2 flex items-center gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-zinc-300 truncate">{gen.textInput}</p>
+                        <p className="text-[10px] text-zinc-600">
+                          {formatRelativeTime(new Date(gen.createdAt))}
+                        </p>
+                      </div>
+                      {gen.audioUrl && (
+                        <audio controls src={gen.audioUrl} className="h-8 max-w-[180px]" />
+                      )}
+                      <button
+                        onClick={() => handleDeleteGeneration(gen.id)}
+                        disabled={deletingGenerationId === gen.id}
+                        title="Eliminar audio"
+                        className="w-7 h-7 flex-shrink-0 rounded-lg hover:bg-white/[0.04] flex items-center justify-center text-zinc-500 hover:text-red-500 transition-colors disabled:opacity-50"
+                      >
+                        {deletingGenerationId === gen.id ? (
+                          <div className="w-3.5 h-3.5 border-2 border-zinc-600 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
