@@ -500,6 +500,10 @@ export function VoicePage() {
     }
   };
 
+  // Generation settings
+  const [speed, setSpeed] = useState("1.0");
+  const [style, setStyle] = useState("natural");
+
   // Text editor
   const [text, setText] = useState(mockText);
   const [prevText, setPrevText] = useState<string | null>(null); // for undo
@@ -565,7 +569,13 @@ export function VoicePage() {
       const res = await fetch("/api/voice/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, modelId: ttsModel.id, voiceProfileId: selectedVoice }),
+        body: JSON.stringify({
+          text,
+          modelId: ttsModel.id,
+          voiceProfileId: selectedVoice,
+          speed: Number(speed),
+          style,
+        }),
       });
 
       if (!res.ok) {
@@ -944,7 +954,7 @@ export function VoicePage() {
 
             <div className="flex items-center gap-3">
               <label className="text-xs text-zinc-500">Velocidad</label>
-              <Select defaultValue="1.0">
+              <Select value={speed} onValueChange={(v) => v && setSpeed(v)}>
                 <SelectTrigger className="w-24 h-8 bg-[#141414] border-white/10 text-white text-sm">
                   <SelectValue>{(v: string) => `${v}x`}</SelectValue>
                 </SelectTrigger>
@@ -960,7 +970,7 @@ export function VoicePage() {
 
             <div className="flex items-center gap-3">
               <label className="text-xs text-zinc-500">Estilo</label>
-              <Select defaultValue="natural">
+              <Select value={style} onValueChange={(v) => v && setStyle(v)}>
                 <SelectTrigger className="w-36 h-8 bg-[#141414] border-white/10 text-white text-sm">
                   <SelectValue>
                     {(v: string) => v.charAt(0).toUpperCase() + v.slice(1)}
