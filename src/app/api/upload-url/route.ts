@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const bucket = (process.env.SUPABASE_BUCKET_AUDIOS ?? "creator-audios").trim();
 
   const res = await fetch(
-    `${supabaseUrl}/storage/v1/object/sign/upload/${bucket}/${path}`,
+    `${supabaseUrl}/storage/v1/object/upload/sign/${bucket}/${path}`,
     {
       method: "POST",
       headers: {
@@ -35,6 +35,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Storage sign error: ${err}` }, { status: 502 });
   }
 
-  const { signedURL } = await res.json() as { signedURL: string };
-  return NextResponse.json({ signedURL: `${supabaseUrl}${signedURL}`, path, safeName });
+  const data = await res.json() as { signedURL?: string; url?: string; token?: string };
+  // Supabase returns { signedURL: "/storage/v1/object/upload/sign/bucket/path?token=..." }
+  const signedURL = data.signedURL ?? data.url ?? "";
+  const fullURL = signedURL.startsWith("http") ? signedURL : `${supabaseUrl}${signedURL}`;
+  return NextResponse.json({ signedURL: fullURL, path, safeName });
 }
