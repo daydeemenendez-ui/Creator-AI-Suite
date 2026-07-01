@@ -45,6 +45,10 @@ export function ResearchPage() {
       setError(`Formato .${ext} no soportado. Usa MP4, MP3, WAV o M4A.`);
       return;
     }
+    if (file.size > 25 * 1024 * 1024) {
+      setError(`El archivo pesa ${(file.size / 1024 / 1024).toFixed(1)} MB. Groq Whisper acepta máximo 25 MB. Comprime el video o extrae solo el audio antes de subir.`);
+      return;
+    }
     setSelectedFile(file);
     setError("");
   }, []);
