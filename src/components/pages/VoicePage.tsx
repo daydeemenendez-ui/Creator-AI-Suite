@@ -323,10 +323,49 @@ function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogPr
 export function VoicePage() {
   const { model: ttsModel, setModel: setTtsModel } = useTtsModel();
 
-  // Voices — start from mock data; personality lives in this state
+  // Voices — start from mock data; real cloned voices load from the DB and
+  // replace them so uploads survive a refresh / new session
   const [voices, setVoices] = useState<ClonedVoice[]>(INITIAL_VOICES);
   const [selectedVoice, setSelectedVoice] = useState("v1");
   const [editingVoiceId, setEditingVoiceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/voice?type=profiles");
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          profiles?: {
+            id: string;
+            name: string;
+            description: string | null;
+            personality: string | null;
+            sampleCount: number;
+            status: "PROCESSING" | "READY" | "ERROR";
+          }[];
+        };
+        if (cancelled || !data.profiles?.length) return;
+
+        const realVoices: ClonedVoice[] = data.profiles.map((p) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description ?? "Voz clonada desde archivo",
+          status: p.status === "READY" ? "ready" : "processing",
+          samples: p.sampleCount || 1,
+          duration: "—",
+          language: "ES",
+          personality: p.personality ?? undefined,
+        }));
+
+        setVoices(realVoices);
+        setSelectedVoice(realVoices[0].id);
+      } catch {
+        // Keep demo voices if the DB is unreachable
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Capture section
   const [isDragging, setIsDragging] = useState(false);
