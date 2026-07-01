@@ -82,8 +82,8 @@ export async function POST(req: NextRequest) {
             },
           });
           generationId = generation.id;
-        } catch {
-          // DB/storage unavailable — still return the audio for playback
+        } catch (persistErr) {
+          console.error("Failed to persist audio generation:", persistErr);
         }
 
         return new NextResponse(audioBuffer.buffer as ArrayBuffer, {
