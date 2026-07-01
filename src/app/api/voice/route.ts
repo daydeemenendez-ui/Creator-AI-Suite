@@ -41,5 +41,6 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  return NextResponse.json(await deleteVoiceProfile(id));
+  const result = await deleteVoiceProfile(id);
+  return NextResponse.json(result, { status: (result as { error?: string }).error ? 400 : 200 });
 }

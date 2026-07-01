@@ -318,6 +318,80 @@ function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogPr
   );
 }
 
+// ─── Delete confirmation dialog ───────────────────────────────────────────────
+
+interface DeleteVoiceDialogProps {
+  voice: ClonedVoice;
+  open: boolean;
+  onClose: () => void;
+  onConfirm: (voiceId: string) => Promise<void>;
+}
+
+function DeleteVoiceDialog({ voice, open, onClose, onConfirm }: DeleteVoiceDialogProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConfirm = async () => {
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await onConfirm(voice.id);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
+      <DialogContent className="bg-[#161616] border-white/10 text-white sm:max-w-sm shadow-[0_16px_64px_rgba(0,0,0,0.8)]">
+        <DialogHeader>
+          <DialogTitle className="text-white text-base tracking-tight">
+            Eliminar voz clonada
+          </DialogTitle>
+          <p className="text-[13px] text-zinc-500 mt-1.5 leading-5">
+            ¿Seguro que quieres eliminar <span className="text-white font-medium">{voice.name}</span>?
+            Esta acción no se puede deshacer y también borrará los audios generados con esta voz.
+          </p>
+        </DialogHeader>
+
+        {error && (
+          <p className="text-[11px] text-red-400 bg-red-950/20 border border-red-900/40 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <DialogFooter className="border-white/[0.07] bg-transparent">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            disabled={isDeleting}
+            className="text-zinc-500 hover:text-white border border-white/10 h-8 text-xs"
+          >
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleConfirm}
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-500 text-white h-8 text-xs gap-1.5 shadow-[0_0_16px_rgba(220,38,38,0.25)] transition-all"
+          >
+            {isDeleting ? (
+              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5" />
+            )}
+            {isDeleting ? "Eliminando..." : "Eliminar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function VoicePage() {
@@ -328,6 +402,7 @@ export function VoicePage() {
   const [voices, setVoices] = useState<ClonedVoice[]>(INITIAL_VOICES);
   const [selectedVoice, setSelectedVoice] = useState("v1");
   const [editingVoiceId, setEditingVoiceId] = useState<string | null>(null);
+  const [deletingVoiceId, setDeletingVoiceId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -460,6 +535,7 @@ export function VoicePage() {
   const audioDuration = audioRef.current?.duration ?? totalSeconds;
   const playProgress = (playSeconds / Math.max(1, audioDuration)) * 100;
   const editingVoice = voices.find((v) => v.id === editingVoiceId);
+  const deletingVoice = voices.find((v) => v.id === deletingVoiceId);
 
   // Keep relative time fresh
   useEffect(() => {
@@ -514,6 +590,21 @@ export function VoicePage() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // ── Delete voice ────────────────────────────────────────────────────────────
+  const handleDeleteVoice = async (voiceId: string) => {
+    const res = await fetch(`/api/voice?id=${encodeURIComponent(voiceId)}`, { method: "DELETE" });
+    const data = (await res.json()) as { success?: boolean; error?: string };
+    if (!res.ok || data.error) throw new Error(data.error ?? `Error ${res.status}`);
+
+    setVoices((prev) => {
+      const remaining = prev.filter((v) => v.id !== voiceId);
+      if (selectedVoice === voiceId) {
+        setSelectedVoice(remaining[0]?.id ?? "");
+      }
+      return remaining;
+    });
   };
 
   // ── Personality save ────────────────────────────────────────────────────────
@@ -607,6 +698,16 @@ export function VoicePage() {
           open={editingVoiceId !== null}
           onClose={() => setEditingVoiceId(null)}
           onSave={handleSavePersonality}
+        />
+      )}
+
+      {/* Delete confirmation dialog */}
+      {deletingVoice && (
+        <DeleteVoiceDialog
+          voice={deletingVoice}
+          open={deletingVoiceId !== null}
+          onClose={() => setDeletingVoiceId(null)}
+          onConfirm={handleDeleteVoice}
         />
       )}
 
@@ -769,6 +870,19 @@ export function VoicePage() {
                         }`}
                       >
                         <Pencil className="w-3 h-3" />
+                      </button>
+                      {/* Delete voice button — always visible on selected, hover on others */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingVoiceId(voice.id);
+                        }}
+                        title="Eliminar voz"
+                        className={`w-5 h-5 flex items-center justify-center rounded text-[#555] hover:text-red-500 transition-colors flex-shrink-0 ${
+                          selectedVoice === voice.id ? "opacity-100" : "opacity-0 group-hover/card:opacity-100"
+                        }`}
+                      >
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
 

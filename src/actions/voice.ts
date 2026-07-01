@@ -330,6 +330,15 @@ export async function listAudioGenerations(projectId?: string) {
 // ─────────────────────────────────────────────
 
 export async function deleteVoiceProfile(voiceProfileId: string) {
-  await prisma.voiceProfile.delete({ where: { id: voiceProfileId } });
-  return { success: true };
+  try {
+    // AudioGeneration -> VoiceProfile has no cascade delete, so drop
+    // generations (and their chunks, which do cascade) before the profile
+    await prisma.$transaction([
+      prisma.audioGeneration.deleteMany({ where: { voiceId: voiceProfileId } }),
+      prisma.voiceProfile.delete({ where: { id: voiceProfileId } }),
+    ]);
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
 }
