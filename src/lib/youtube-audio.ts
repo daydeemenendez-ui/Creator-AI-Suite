@@ -1,5 +1,3 @@
-"use server";
-
 // Extracts transcript from YouTube by parsing the page HTML directly.
 // Works from server without API keys. Uses the same data source that
 // youtube-transcript npm package uses internally.

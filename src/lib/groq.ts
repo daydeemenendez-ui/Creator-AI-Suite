@@ -1,5 +1,3 @@
-"use server";
-
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 
 async function getApiKey(): Promise<string> {
