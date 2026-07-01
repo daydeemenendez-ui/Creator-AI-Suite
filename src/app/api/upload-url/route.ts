@@ -35,9 +35,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Storage sign error: ${err}` }, { status: 502 });
   }
 
-  const data = await res.json() as { signedURL?: string; url?: string; token?: string };
-  // Supabase returns { signedURL: "/storage/v1/object/upload/sign/bucket/path?token=..." }
-  const signedURL = data.signedURL ?? data.url ?? "";
-  const fullURL = signedURL.startsWith("http") ? signedURL : `${supabaseUrl}${signedURL}`;
+  // Supabase returns { url: "/object/upload/sign/bucket/path?token=...", token: "..." }
+  const data = await res.json() as { url?: string; token?: string };
+  const relativeUrl = data.url ?? "";
+  // relativeUrl is relative to /storage/v1
+  const fullURL = `${supabaseUrl}/storage/v1${relativeUrl}`;
   return NextResponse.json({ signedURL: fullURL, path, safeName });
 }
