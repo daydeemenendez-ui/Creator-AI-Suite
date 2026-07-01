@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
         apikey: serviceKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ upsert: false }),
+      body: JSON.stringify({ upsert: false, expiresIn: 300 }),
     }
   );
 
