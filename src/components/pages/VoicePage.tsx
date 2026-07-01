@@ -450,7 +450,7 @@ export function VoicePage() {
       const res = await fetch("/api/voice/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, modelId: ttsModel.id }),
+        body: JSON.stringify({ text, modelId: ttsModel.id, voiceProfileId: selectedVoice }),
       });
 
       if (!res.ok) {
