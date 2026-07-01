@@ -27,7 +27,10 @@ function readFromStorage(): TtsModel {
   if (typeof window === "undefined") return TTS_MODELS[0];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as TtsModel) : TTS_MODELS[0];
+    if (!raw) return TTS_MODELS[0];
+    const parsed = JSON.parse(raw) as Partial<TtsModel>;
+    // Resolve against the catalog so renamed/removed models never leave stale data
+    return TTS_MODELS.find((m) => m.id === parsed.id) ?? TTS_MODELS[0];
   } catch {
     return TTS_MODELS[0];
   }

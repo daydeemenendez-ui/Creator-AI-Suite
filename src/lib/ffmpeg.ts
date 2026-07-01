@@ -93,7 +93,8 @@ async function getFfmpeg(): Promise<string> {
   // Use system ffmpeg if available (production / server)
   const { execSync } = await import("child_process");
   try {
-    const bin = execSync("where ffmpeg 2>/dev/null || which ffmpeg 2>/dev/null")
+    const cmd = process.platform === "win32" ? "where ffmpeg" : "which ffmpeg";
+    const bin = execSync(cmd, { stdio: ["pipe", "pipe", "ignore"] })
       .toString()
       .trim()
       .split("\n")[0];
@@ -101,6 +102,15 @@ async function getFfmpeg(): Promise<string> {
   } catch {
     // not found in PATH
   }
+
+  // Fall back to the bundled ffmpeg-static binary
+  try {
+    const { default: ffmpegStatic } = await import("ffmpeg-static");
+    if (ffmpegStatic) return ffmpegStatic as string;
+  } catch {
+    // package not available
+  }
+
   throw new Error(
     "ffmpeg not found. Install it: https://ffmpeg.org/download.html"
   );

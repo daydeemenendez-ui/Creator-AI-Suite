@@ -20,8 +20,15 @@ export async function createVoiceClone(formData: FormData) {
     return { error: "file and name are required" };
   }
 
-  const allowedTypes = ["video/mp4", "audio/mpeg", "audio/wav", "audio/mp3"];
-  if (!allowedTypes.includes(file.type)) {
+  // Browsers report inconsistent MIME types (e.g. audio/x-wav, audio/mp4),
+  // so accept by extension as well
+  const allowedTypes = [
+    "video/mp4", "audio/mp4", "audio/mpeg", "audio/wav",
+    "audio/x-wav", "audio/wave", "audio/mp3", "audio/x-m4a",
+  ];
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const allowedExts = ["mp4", "mp3", "wav", "m4a"];
+  if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
     return { error: "Unsupported file type. Use MP4, MP3 or WAV." };
   }
 
@@ -30,7 +37,7 @@ export async function createVoiceClone(formData: FormData) {
     let audioBuffer: Buffer = Buffer.from(await file.arrayBuffer() as ArrayBuffer);
 
     // Extract audio from video if MP4
-    if (file.type === "video/mp4") {
+    if (file.type === "video/mp4" || ext === "mp4") {
       audioBuffer = (await extractAudioFromVideo(audioBuffer, "mp4")) as Buffer;
     }
 

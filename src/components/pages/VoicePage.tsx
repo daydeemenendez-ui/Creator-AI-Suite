@@ -330,6 +330,61 @@ export function VoicePage() {
 
   // Capture section
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleSampleFile = async (file: File) => {
+    setUploadError(null);
+    setUploadSuccess(null);
+
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!["mp4", "mp3", "wav", "m4a"].includes(ext)) {
+      setUploadError("Formato no soportado. Usa MP4, MP3 o WAV.");
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      setUploadError("El archivo supera el límite de 25MB.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("name", file.name.replace(/\.[^.]+$/, ""));
+      const res = await fetch("/api/voice/clone", { method: "POST", body: fd });
+      const data = (await res.json()) as {
+        success?: boolean;
+        voiceId?: string;
+        status?: string;
+        error?: string;
+      };
+      if (!res.ok || data.error) throw new Error(data.error ?? `Error ${res.status}`);
+
+      const newVoice: ClonedVoice = {
+        id: data.voiceId ?? `v-${Date.now()}`,
+        name: file.name.replace(/\.[^.]+$/, ""),
+        description: "Voz clonada desde archivo",
+        status: data.status === "success" ? "ready" : "processing",
+        samples: 1,
+        duration: "—",
+        language: "ES",
+      };
+      setVoices((prev) => [newVoice, ...prev]);
+      setSelectedVoice(newVoice.id);
+      setUploadSuccess(
+        newVoice.status === "ready"
+          ? "Muestra subida — voz lista."
+          : "Muestra subida — la voz se está procesando."
+      );
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Text editor
   const [text, setText] = useState(mockText);
@@ -563,19 +618,42 @@ export function VoicePage() {
               </TabsList>
 
               <TabsContent value="upload">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".mp4,.mp3,.wav,.m4a,video/mp4,audio/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleSampleFile(file);
+                    e.target.value = "";
+                  }}
+                />
                 <div
+                  onClick={() => { if (!isUploading) fileInputRef.current?.click(); }}
                   onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                   onDragLeave={() => setIsDragging(false)}
-                  onDrop={(e) => { e.preventDefault(); setIsDragging(false); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && !isUploading) void handleSampleFile(file);
+                  }}
                   className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
                     isDragging
                       ? "border-[#FF0033] bg-[#FF0033]/5"
                       : "border-white/[0.08] hover:border-[#FF0033]/30 hover:bg-[#FF0033]/[0.02]"
                   }`}
                 >
-                  <Upload className="w-5 h-5 text-zinc-600 mx-auto mb-2" />
-                  <p className="text-xs text-zinc-400">Sube audio de tu voz</p>
-                  <p className="text-[10px] text-zinc-600 mt-0.5">MP4, MP3, WAV · mín. 30s</p>
+                  {isUploading ? (
+                    <div className="w-5 h-5 border-2 border-[#FF0033]/30 border-t-[#FF0033] rounded-full animate-spin mx-auto mb-2" />
+                  ) : (
+                    <Upload className="w-5 h-5 text-zinc-600 mx-auto mb-2" />
+                  )}
+                  <p className="text-xs text-zinc-400">
+                    {isUploading ? "Subiendo muestra..." : "Sube audio de tu voz"}
+                  </p>
+                  <p className="text-[10px] text-zinc-600 mt-0.5">MP4, MP3, WAV · mín. 30s · máx. 25MB</p>
                   <div className="flex justify-center gap-1.5 mt-2">
                     {["MP4", "MP3", "WAV"].map((ext) => (
                       <Badge key={ext} className="text-[9px] px-1 py-0 bg-white/[0.04] border-white/[0.08] text-zinc-600">
@@ -584,6 +662,18 @@ export function VoicePage() {
                     ))}
                   </div>
                 </div>
+                {uploadError && (
+                  <p className="text-[10px] text-red-400 mt-2 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                    {uploadError}
+                  </p>
+                )}
+                {uploadSuccess && (
+                  <p className="text-[10px] text-green-400 mt-2 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3 flex-shrink-0" />
+                    {uploadSuccess}
+                  </p>
+                )}
               </TabsContent>
 
               <TabsContent value="record">
@@ -600,10 +690,13 @@ export function VoicePage() {
               Voces clonadas ({voices.length})
             </p>
             {voices.map((voice) => (
-              <button
+              <div
                 key={voice.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedVoice(voice.id)}
-                className={`w-full text-left p-3 rounded-xl border transition-all group/card ${
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setSelectedVoice(voice.id); }}
+                className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer group/card ${
                   selectedVoice === voice.id
                     ? "bg-[#FF0033]/10 border-[#FF0033]/30"
                     : "bg-[#141414] border-white/[0.07] hover:border-white/[0.14]"
@@ -669,7 +762,7 @@ export function VoicePage() {
                     </div>
                   </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -682,7 +775,9 @@ export function VoicePage() {
               <label className="text-xs text-zinc-500">Voz seleccionada</label>
               <Select value={selectedVoice} onValueChange={(v) => v && setSelectedVoice(v)}>
                 <SelectTrigger className="w-44 h-8 bg-[#141414] border-white/10 text-white text-sm">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v: string) => voices.find((voice) => voice.id === v)?.name ?? v}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
                   {voices.map((v) => (
@@ -698,7 +793,7 @@ export function VoicePage() {
               <label className="text-xs text-zinc-500">Velocidad</label>
               <Select defaultValue="1.0">
                 <SelectTrigger className="w-24 h-8 bg-[#141414] border-white/10 text-white text-sm">
-                  <SelectValue />
+                  <SelectValue>{(v: string) => `${v}x`}</SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
                   {["0.75x", "1.0x", "1.25x", "1.5x"].map((s) => (
@@ -714,7 +809,9 @@ export function VoicePage() {
               <label className="text-xs text-zinc-500">Estilo</label>
               <Select defaultValue="natural">
                 <SelectTrigger className="w-36 h-8 bg-[#141414] border-white/10 text-white text-sm">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v: string) => v.charAt(0).toUpperCase() + v.slice(1)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
                   {["Natural", "Enérgico", "Formal", "Casual"].map((s) => (
@@ -736,7 +833,9 @@ export function VoicePage() {
                 }}
               >
                 <SelectTrigger className="w-48 h-8 bg-[#141414] border-white/10 text-white text-sm">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v: string) => TTS_MODELS.find((m) => m.id === v)?.name ?? v}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
                   {Object.entries(
