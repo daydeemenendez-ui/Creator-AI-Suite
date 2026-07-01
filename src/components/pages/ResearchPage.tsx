@@ -71,7 +71,10 @@ export function ResearchPage() {
       // 1. Upload directly to Supabase Storage (bypasses Vercel's 4.5MB body limit)
       const supabase = createClient();
       const bucket = "creator-audios";
-      const storagePath = `audio/${Date.now()}-${selectedFile.name}`;
+      const safeName = selectedFile.name
+        .normalize("NFD").replace(/[̀-ͯ]/g, "")
+        .replace(/[^a-zA-Z0-9._-]/g, "_");
+      const storagePath = `audio/${Date.now()}-${safeName}`;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
