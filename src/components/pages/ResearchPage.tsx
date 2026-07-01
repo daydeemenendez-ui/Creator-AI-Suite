@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
   Upload, Lock, Copy, Download, RefreshCw, Wand2, Video, FileAudio, ChevronRight, X, Loader2,
 } from "lucide-react";
@@ -68,32 +67,37 @@ export function ResearchPage() {
     setResult(null);
 
     try {
-      // 1. Upload directly to Supabase Storage (bypasses Vercel's 4.5MB body limit)
-      const supabase = createClient();
-      const bucket = "creator-audios";
-      const safeName = selectedFile.name
-        .normalize("NFD").replace(/[̀-ͯ]/g, "")
-        .replace(/[^a-zA-Z0-9._-]/g, "_");
-      const storagePath = `audio/${Date.now()}-${safeName}`;
+      // 1. Get a signed upload URL from the server (avoids needing Supabase keys in browser)
+      const urlRes = await fetch("/api/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: selectedFile.name }),
+      });
+      if (!urlRes.ok) {
+        const e = await urlRes.json() as { error?: string };
+        setError(e.error ?? "No se pudo obtener URL de subida.");
+        return;
+      }
+      const { signedURL, path: storagePath, safeName } = await urlRes.json() as { signedURL: string; path: string; safeName: string };
 
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(storagePath, selectedFile, { upsert: false });
-
-      if (uploadError) {
-        setError(`Error al subir el archivo: ${uploadError.message}`);
+      // 2. Upload file directly to Supabase Storage using the signed URL (no auth headers needed)
+      const uploadRes = await fetch(signedURL, {
+        method: "PUT",
+        headers: { "Content-Type": selectedFile.type || "application/octet-stream" },
+        body: selectedFile,
+      });
+      if (!uploadRes.ok) {
+        const e = await uploadRes.text();
+        setError(`Error al subir el archivo: ${e.slice(0, 200)}`);
         return;
       }
 
-      // 2. Ask the server to download from Storage and transcribe with Groq
+      // 3. Ask the server to download from Storage and transcribe with Groq
       const http = await fetch("/api/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "storage-path", path: storagePath, fileName: selectedFile.name }),
+        body: JSON.stringify({ type: "storage-path", path: storagePath, fileName: safeName }),
       });
-
-      // Clean up storage file after transcription (best-effort)
-      supabase.storage.from(bucket).remove([storagePath]).catch(() => {});
 
       const contentType = http.headers.get("content-type") ?? "";
       if (!contentType.includes("application/json")) {
