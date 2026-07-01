@@ -197,7 +197,12 @@ export interface TTSOptions {
   speed?: number;
   vol?: number;
   pitch?: number;
-  model?: string; // defaults to the higher-fidelity HD model over the turbo one
+  // speech-01-turbo (default) is cheaper/faster; speech-02-hd costs more per
+  // character but sounds closer to the original — use it selectively (e.g.
+  // the fidelity comparison), not for every generation
+  model?: string;
+  sampleRate?: number;
+  bitrate?: number;
 }
 
 export async function textToSpeech(options: TTSOptions): Promise<Buffer<ArrayBuffer>> {
@@ -210,7 +215,7 @@ export async function textToSpeech(options: TTSOptions): Promise<Buffer<ArrayBuf
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: options.model ?? "speech-02-hd",
+      model: options.model ?? "speech-01-turbo",
       text: options.text,
       stream: false,
       voice_setting: {
@@ -220,8 +225,8 @@ export async function textToSpeech(options: TTSOptions): Promise<Buffer<ArrayBuf
         pitch: options.pitch ?? 0,
       },
       audio_setting: {
-        sample_rate: 44100,
-        bitrate: 256000,
+        sample_rate: options.sampleRate ?? 32000,
+        bitrate: options.bitrate ?? 128000,
         format: "mp3",
       },
     }),

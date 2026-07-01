@@ -311,7 +311,15 @@ export async function getOrCreateComparisonAudio(voiceProfileId: string) {
 
     const transcript = await ensureSampleTranscript(profile);
 
-    const buffer = await textToSpeech({ voiceId: profile.miniMaxVoiceId, text: transcript });
+    // Worth the extra cost here specifically: this is the one clip meant to
+    // judge fidelity against the original, generated once and cached.
+    const buffer = await textToSpeech({
+      voiceId: profile.miniMaxVoiceId,
+      text: transcript,
+      model: "speech-02-hd",
+      sampleRate: 44100,
+      bitrate: 256000,
+    });
     const audioUrl = await uploadAudioFile(buffer, `comparison-${profile.id}.mp3`, "audio/mpeg");
 
     await prisma.voiceProfile.update({
