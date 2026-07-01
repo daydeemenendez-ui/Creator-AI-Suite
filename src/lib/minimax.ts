@@ -125,10 +125,15 @@ export async function cloneVoice(
   voiceName: string
 ): Promise<CloneVoiceResult> {
   const apiKey = await resolveApiKey();
+  // MiniMax's voice_clone response doesn't echo back voice_id, so we generate
+  // it ourselves (must be unique, MiniMax requires alnum/underscore) and send
+  // the same value in the request — that's the id we use going forward.
+  const voiceId = `${voiceName.replace(/\s+/g, "_").toLowerCase().replace(/[^a-z0-9_]/g, "")}_${Date.now()}`;
+
   const formData = new FormData();
   const blob = new Blob([audioBuffer.buffer as ArrayBuffer], { type: "audio/mpeg" });
   formData.append("file", blob, fileName);
-  formData.append("voice_id", voiceName.replace(/\s+/g, "_").toLowerCase());
+  formData.append("voice_id", voiceId);
 
   const res = await fetch(`${BASE_URL}/voice_clone?GroupId=${GROUP_ID}`, {
     method: "POST",
@@ -142,9 +147,13 @@ export async function cloneVoice(
   }
 
   const data = await res.json();
+  if (data.base_resp?.status_code !== 0) {
+    throw new Error(`MiniMax voice clone failed: ${data.base_resp?.status_msg ?? "unknown error"}`);
+  }
+
   return {
-    voiceId: data.voice_id ?? data.data?.voice_id,
-    status: data.base_resp?.status_code === 0 ? "success" : "processing",
+    voiceId,
+    status: "success",
   };
 }
 
