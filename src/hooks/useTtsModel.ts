@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export interface TtsModel {
   id: string;
@@ -21,27 +21,35 @@ export const TTS_MODELS: TtsModel[] = [
   { id: "azure/neural-tts",        name: "Neural TTS",         provider: "Azure" },
 ];
 
-const STORAGE_KEY = "creator_ai_tts_model";
-
-function readFromStorage(): TtsModel {
-  if (typeof window === "undefined") return TTS_MODELS[0];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return TTS_MODELS[0];
-    const parsed = JSON.parse(raw) as Partial<TtsModel>;
-    // Resolve against the catalog so renamed/removed models never leave stale data
-    return TTS_MODELS.find((m) => m.id === parsed.id) ?? TTS_MODELS[0];
-  } catch {
-    return TTS_MODELS[0];
-  }
-}
-
+// Persisted in the DB (voice_studio_tts_model in app_settings), not
+// localStorage, so it survives across devices/browsers.
 export function useTtsModel() {
-  const [model, setModelState] = useState<TtsModel>(readFromStorage);
+  const [model, setModelState] = useState<TtsModel>(TTS_MODELS[0]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/voice/preferences");
+        if (!res.ok) return;
+        const data = (await res.json()) as { ttsModel?: string };
+        if (cancelled || !data.ttsModel) return;
+        const found = TTS_MODELS.find((m) => m.id === data.ttsModel);
+        if (found) setModelState(found);
+      } catch {
+        // Keep default model if the DB is unreachable
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   function setModel(m: TtsModel) {
     setModelState(m);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(m));
+    void fetch("/api/voice/preferences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ttsModel: m.id }),
+    });
   }
 
   return { model, setModel };

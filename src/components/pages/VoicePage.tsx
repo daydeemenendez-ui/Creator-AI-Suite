@@ -118,33 +118,6 @@ Si llevas tiempo en YouTube, ya sabes que la competencia es feroz. Pero con las 
 
 Hoy te voy a mostrar exactamente qué herramientas uso yo en mi flujo de trabajo, y cómo puedes implementarlas tú también.`;
 
-// ─── Local persistence (survives refresh / closing the tab) ──────────────────
-
-const STORAGE_KEYS = {
-  selectedVoice: "creator_ai_voice_selected",
-  speed: "creator_ai_voice_speed",
-  style: "creator_ai_voice_style",
-  text: "creator_ai_voice_text",
-} as const;
-
-function readStored(key: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  try {
-    return localStorage.getItem(key) ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStored(key: string, value: string) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // localStorage unavailable (private mode, quota, etc.) — non-fatal
-  }
-}
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatRelativeTime(date: Date): string {
@@ -492,11 +465,44 @@ export function VoicePage() {
   // Voices — start from mock data; real cloned voices load from the DB and
   // replace them so uploads survive a refresh / new session
   const [voices, setVoices] = useState<ClonedVoice[]>(INITIAL_VOICES);
-  const [selectedVoice, setSelectedVoiceState] = useState(() => readStored(STORAGE_KEYS.selectedVoice, "v1"));
+
+  // UI preferences (selected voice, speed, style, editor text) are persisted
+  // server-side in app_settings via /api/voice/preferences — not
+  // localStorage — so they survive across devices/browsers, not just this one.
+  const [selectedVoice, setSelectedVoiceState] = useState("v1");
+  const [speed, setSpeedState] = useState("1.0");
+  const [style, setStyleState] = useState("natural");
+  const [text, setTextState] = useState(mockText);
+
+  const savePreference = useCallback((field: string, value: string) => {
+    void fetch("/api/voice/preferences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+  }, []);
+
   const setSelectedVoice = useCallback((id: string) => {
     setSelectedVoiceState(id);
-    writeStored(STORAGE_KEYS.selectedVoice, id);
-  }, []);
+    savePreference("selectedVoice", id);
+  }, [savePreference]);
+  const setSpeed = useCallback((v: string) => {
+    setSpeedState(v);
+    savePreference("speed", v);
+  }, [savePreference]);
+  const setStyle = useCallback((v: string) => {
+    setStyleState(v);
+    savePreference("style", v);
+  }, [savePreference]);
+
+  // Text changes on every keystroke — debounce the DB write
+  const textSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setText = useCallback((v: string) => {
+    setTextState(v);
+    if (textSaveTimer.current) clearTimeout(textSaveTimer.current);
+    textSaveTimer.current = setTimeout(() => savePreference("text", v), 800);
+  }, [savePreference]);
+
   const [editingVoiceId, setEditingVoiceId] = useState<string | null>(null);
   const [deletingVoiceId, setDeletingVoiceId] = useState<string | null>(null);
 
@@ -504,9 +510,30 @@ export function VoicePage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/voice?type=profiles");
-        if (!res.ok) return;
-        const data = (await res.json()) as {
+        const [profilesRes, prefsRes] = await Promise.all([
+          fetch("/api/voice?type=profiles"),
+          fetch("/api/voice/preferences"),
+        ]);
+
+        const prefs = prefsRes.ok
+          ? (await prefsRes.json()) as {
+              selectedVoice?: string;
+              speed?: string;
+              style?: string;
+              text?: string;
+            }
+          : {};
+        if (cancelled) return;
+
+        if (prefs.speed) setSpeedState(prefs.speed);
+        if (prefs.style) setStyleState(prefs.style);
+        if (prefs.text) setTextState(prefs.text);
+
+        if (!profilesRes.ok) {
+          if (prefs.selectedVoice) setSelectedVoiceState(prefs.selectedVoice);
+          return;
+        }
+        const data = (await profilesRes.json()) as {
           profiles?: {
             id: string;
             name: string;
@@ -518,7 +545,10 @@ export function VoicePage() {
             comparisonAudioUrl: string | null;
           }[];
         };
-        if (cancelled || !data.profiles?.length) return;
+        if (cancelled || !data.profiles?.length) {
+          if (prefs.selectedVoice) setSelectedVoiceState(prefs.selectedVoice);
+          return;
+        }
 
         const realVoices: ClonedVoice[] = data.profiles.map((p) => ({
           id: p.id,
@@ -534,13 +564,15 @@ export function VoicePage() {
         }));
 
         setVoices(realVoices);
-        // Keep the previously selected voice if it still exists, otherwise
+        // Keep the previously saved voice if it still exists, otherwise
         // fall back to the first one
-        setSelectedVoice(
-          realVoices.some((v) => v.id === selectedVoice) ? selectedVoice : realVoices[0].id
+        setSelectedVoiceState(
+          prefs.selectedVoice && realVoices.some((v) => v.id === prefs.selectedVoice)
+            ? prefs.selectedVoice
+            : realVoices[0].id
         );
       } catch {
-        // Keep demo voices if the DB is unreachable
+        // Keep demo voices / defaults if the DB is unreachable
       }
     })();
     return () => { cancelled = true; };
@@ -604,15 +636,6 @@ export function VoicePage() {
     }
   };
 
-  // Generation settings
-  const [speed, setSpeedState] = useState(() => readStored(STORAGE_KEYS.speed, "1.0"));
-  const setSpeed = useCallback((v: string) => { setSpeedState(v); writeStored(STORAGE_KEYS.speed, v); }, []);
-  const [style, setStyleState] = useState(() => readStored(STORAGE_KEYS.style, "natural"));
-  const setStyle = useCallback((v: string) => { setStyleState(v); writeStored(STORAGE_KEYS.style, v); }, []);
-
-  // Text editor
-  const [text, setTextState] = useState(() => readStored(STORAGE_KEYS.text, mockText));
-  const setText = useCallback((v: string) => { setTextState(v); writeStored(STORAGE_KEYS.text, v); }, []);
   const [prevText, setPrevText] = useState<string | null>(null); // for undo
 
   // LLM actions
