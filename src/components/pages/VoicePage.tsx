@@ -690,6 +690,28 @@ export function VoicePage() {
     }
   };
 
+  const [downloadingGenerationId, setDownloadingGenerationId] = useState<string | null>(null);
+
+  const handleDownloadGeneration = async (gen: SavedGeneration) => {
+    if (!gen.audioUrl) return;
+    setDownloadingGenerationId(gen.id);
+    try {
+      const res = await fetch(gen.audioUrl);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${gen.textInput.slice(0, 40).trim().replace(/[^a-zA-Z0-9]+/g, "-") || "audio"}.mp3`;
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      // If the fetch fails (e.g. CORS), fall back to opening the file directly
+      window.open(gen.audioUrl, "_blank");
+    } finally {
+      setDownloadingGenerationId(null);
+    }
+  };
+
   // Fidelity check — clone reading the exact same text as the original sample.
   // The backend caches this per voice, so re-selecting a voice is instant
   // and only the very first time actually transcribes + synthesizes.
@@ -1573,6 +1595,20 @@ export function VoicePage() {
                       </div>
                       {gen.audioUrl && (
                         <audio controls src={gen.audioUrl} className="h-8 max-w-[180px]" />
+                      )}
+                      {gen.audioUrl && (
+                        <button
+                          onClick={() => handleDownloadGeneration(gen)}
+                          disabled={downloadingGenerationId === gen.id}
+                          title="Descargar audio"
+                          className="w-7 h-7 flex-shrink-0 rounded-lg hover:bg-white/[0.04] flex items-center justify-center text-zinc-500 hover:text-white transition-colors disabled:opacity-50"
+                        >
+                          {downloadingGenerationId === gen.id ? (
+                            <div className="w-3.5 h-3.5 border-2 border-zinc-600 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Download className="w-3.5 h-3.5" />
+                          )}
+                        </button>
                       )}
                       <button
                         onClick={() => handleDeleteGeneration(gen.id)}
