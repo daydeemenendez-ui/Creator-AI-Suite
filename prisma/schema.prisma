@@ -230,6 +230,21 @@ model KnowledgeDocument {
   @@map("knowledge_documents")
 }
 
+// ─────────────────────────────────────────────
+// PROMPT LIBRARY
+// ─────────────────────────────────────────────
+model Prompt {
+  id        String   @id @default(cuid())
+  category  String
+  title     String
+  text      String
+  starred   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("prompts")
+}
+
 model AudioChunk {
   id           String   @id @default(cuid())
   generationId String
