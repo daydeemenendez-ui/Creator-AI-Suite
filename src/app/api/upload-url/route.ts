@@ -4,18 +4,38 @@ export const dynamic = "force-dynamic";
 
 // Returns a signed upload URL so the browser can PUT the file directly
 // to Supabase Storage without needing the anon key in the browser.
+const KIND_CONFIG = {
+  audio: { bucket: process.env.SUPABASE_BUCKET_AUDIOS ?? "creator-audios", prefix: "audio" },
+  document: { bucket: process.env.SUPABASE_BUCKET_DOCUMENTS ?? "creator-documents", prefix: "documents" },
+} as const;
+
 export async function POST(req: NextRequest) {
-  const { fileName } = await req.json() as { fileName: string };
+  const { fileName, kind } = await req.json() as { fileName: string; kind?: keyof typeof KIND_CONFIG };
   if (!fileName) return NextResponse.json({ error: "fileName required" }, { status: 400 });
 
   const safeName = fileName
     .normalize("NFD").replace(/[̀-ͯ]/g, "")
     .replace(/[^a-zA-Z0-9._-]/g, "_");
-  const path = `audio/${Date.now()}-${safeName}`;
+  const { bucket: rawBucket, prefix } = KIND_CONFIG[kind ?? "audio"];
+  const path = `${prefix}/${Date.now()}-${safeName}`;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.trim();
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!.trim();
-  const bucket = (process.env.SUPABASE_BUCKET_AUDIOS ?? "creator-audios").trim();
+  const bucket = rawBucket.trim();
+
+  // Ensure the bucket exists — buckets outside the default audio one
+  // (e.g. documents) may not have been created yet in Supabase.
+  if (kind && kind !== "audio") {
+    await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id: bucket, name: bucket, public: true }),
+    }); // ignore errors — 409 means it already exists
+  }
 
   const res = await fetch(
     `${supabaseUrl}/storage/v1/object/upload/sign/${bucket}/${path}`,

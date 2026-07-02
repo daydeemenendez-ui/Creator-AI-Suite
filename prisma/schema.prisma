@@ -215,6 +215,21 @@ model AppSettings {
   @@map("app_settings")
 }
 
+// ─────────────────────────────────────────────
+// KNOWLEDGE BASE
+// ─────────────────────────────────────────────
+model KnowledgeDocument {
+  id        String   @id @default(cuid())
+  type      String   // "documento" | "guia" | "audiencia" | "competencia"
+  name      String
+  path      String   // Supabase Storage object path
+  fileUrl   String   // Supabase Storage public URL
+  sizeBytes Int
+  createdAt DateTime @default(now())
+
+  @@map("knowledge_documents")
+}
+
 model AudioChunk {
   id           String   @id @default(cuid())
   generationId String
