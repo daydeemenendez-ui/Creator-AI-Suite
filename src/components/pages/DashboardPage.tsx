@@ -12,6 +12,7 @@ import {
   Play,
   Plus,
   X,
+  Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,19 +22,29 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 
-const stats = [
-  { label: "Análisis completados", value: "48", icon: BarChart2, change: "+12%", href: "/research" },
-  { label: "Contenido generado",   value: "234", icon: FileText,  change: "+28%", href: "/content" },
-  { label: "Voces clonadas",       value: "6",   icon: Mic,       change: "+2",   href: "/voice" },
-  { label: "Ideas guardadas",      value: "91",  icon: Zap,       change: "+15%", href: "/ideas" },
-];
+interface Activity {
+  id: string;
+  type: "research" | "content" | "voice" | "idea";
+  title: string;
+  status: string;
+  createdAt: string;
+  href: string;
+}
 
-const recentActivity = [
-  { type: "research", title: "Análisis: '10 Tips para YouTubers'", time: "hace 2 horas", status: "completado", icon: Video,    color: "#FF0033", href: "/research" },
-  { type: "content",  title: "Guión generado: 'Cómo usar IA en 2025'", time: "hace 4 horas", status: "borrador",    icon: FileText, color: "#FF6B00", href: "/content" },
-  { type: "voice",    title: "Audio clonado: Voz Principal",       time: "ayer",         status: "listo",       icon: Mic,      color: "#00C9FF", href: "/voice" },
-  { type: "idea",     title: "Idea: 'Tutorial React en 5 minutos'", time: "ayer",         status: "pendiente",   icon: Zap,      color: "#A855F7", href: "/ideas" },
-];
+interface Project {
+  id: string;
+  name: string;
+  color: string;
+  videos: number;
+  status: string;
+  updatedAt: string;
+}
+
+interface DashboardData {
+  stats: { analyses: number; content: number; voices: number; ideas: number };
+  activity: Activity[];
+  projects: Project[];
+}
 
 const quickAccess = [
   { label: "Analizar video",  href: "/research", icon: Video,    desc: "URL de YouTube" },
@@ -42,13 +53,30 @@ const quickAccess = [
   { label: "Nueva idea",      href: "/ideas",    icon: Zap,      desc: "Banco de ideas" },
 ];
 
-const initialProjects = [
-  { name: "Canal Principal", videos: 12, status: "Activo",     lastUpdate: "hoy",          color: "#FF0033" },
-  { name: "Shorts Factory",  videos: 8,  status: "En proceso", lastUpdate: "ayer",          color: "#FF6B00" },
-  { name: "Podcast Series",  videos: 4,  status: "Planeando",  lastUpdate: "hace 3 días",  color: "#00C9FF" },
-];
-
 const projectColors = ["#FF0033", "#FF6B00", "#00C9FF", "#A855F7", "#10B981", "#F59E0B"];
+
+const activityMeta: Record<Activity["type"], { icon: typeof Video; color: string }> = {
+  research: { icon: Video, color: "#FF0033" },
+  content:  { icon: FileText, color: "#FF6B00" },
+  voice:    { icon: Mic, color: "#00C9FF" },
+  idea:     { icon: Zap, color: "#A855F7" },
+};
+
+const positiveStatuses = new Set(["completado", "listo", "convertida"]);
+
+function formatRelativeTime(iso: string) {
+  const date = new Date(iso);
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "ahora";
+  if (diffMin < 60) return `hace ${diffMin} min`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `hace ${diffHours}h`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "ayer";
+  if (diffDays < 7) return `hace ${diffDays} días`;
+  return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+}
 
 function NewProjectParamWatcher({ onTrigger }: { onTrigger: () => void }) {
   const router = useRouter();
@@ -64,21 +92,55 @@ function NewProjectParamWatcher({ onTrigger }: { onTrigger: () => void }) {
 
 export function DashboardPage() {
   const router = useRouter();
-  const [projects, setProjects] = useState(initialProjects);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [selectedColor, setSelectedColor] = useState(projectColors[0]);
+  const [saving, setSaving] = useState(false);
 
-  function handleCreateProject() {
-    if (!newProjectName.trim()) return;
-    setProjects((prev) => [
-      ...prev,
-      { name: newProjectName.trim(), videos: 0, status: "Nuevo", lastUpdate: "ahora", color: selectedColor },
-    ]);
-    setNewProjectName("");
-    setSelectedColor(projectColors[0]);
-    setShowNewProject(false);
+  async function fetchDashboard() {
+    try {
+      const res = await fetch("/api/dashboard");
+      const json = await res.json();
+      setData(json);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
   }
+
+  useEffect(() => {
+    fetchDashboard();
+  }, []);
+
+  async function handleCreateProject() {
+    if (!newProjectName.trim()) return;
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      formData.set("action", "create_project");
+      formData.set("name", newProjectName.trim());
+      formData.set("color", selectedColor);
+      await fetch("/api/dashboard", { method: "POST", body: formData });
+      await fetchDashboard();
+      setNewProjectName("");
+      setSelectedColor(projectColors[0]);
+      setShowNewProject(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const stats = data
+    ? [
+        { label: "Análisis completados", value: data.stats.analyses, icon: BarChart2, href: "/research" },
+        { label: "Contenido generado",   value: data.stats.content,  icon: FileText,  href: "/content" },
+        { label: "Voces clonadas",       value: data.stats.voices,   icon: Mic,       href: "/voice" },
+        { label: "Ideas guardadas",      value: data.stats.ideas,    icon: Zap,       href: "/ideas" },
+      ]
+    : [];
 
   return (
     <>
@@ -102,163 +164,172 @@ export function DashboardPage() {
           </Button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <Card
-                key={stat.label}
-                onClick={() => router.push(stat.href)}
-                className="bg-[#141414] border border-white/[0.08] p-5 hover:border-white/[0.14] hover:bg-[#181818] transition-all group cursor-pointer"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="w-9 h-9 rounded-xl bg-[#FF0033]/10 flex items-center justify-center group-hover:bg-[#FF0033]/15 transition-colors">
-                    <Icon style={{ width: 17, height: 17 }} className="text-[#FF0033]" />
-                  </div>
-                  <Badge className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-medium">
-                    {stat.change}
-                  </Badge>
-                </div>
-                <div className="mt-4">
-                  <p className="text-2xl font-bold text-white tracking-tight">{stat.value}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">{stat.label}</p>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Quick Access */}
-          <div className="space-y-3">
-            <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-widest">Acceso rápido</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {quickAccess.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link key={item.href} href={item.href}>
-                    <Card className="bg-[#141414] border border-white/[0.08] p-4 hover:border-white/[0.14] hover:bg-[#181818] transition-all cursor-pointer group h-full">
-                      <Icon style={{ width: 20, height: 20 }} className="text-[#FF0033] mb-3" />
-                      <p className="text-sm font-semibold text-white tracking-tight">{item.label}</p>
-                      <p className="text-[11px] text-zinc-600 mt-0.5">{item.desc}</p>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
+        {loading && (
+          <div className="flex items-center justify-center py-20 text-zinc-600">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            Cargando dashboard...
           </div>
+        )}
 
-          {/* Recent Activity */}
-          <div className="lg:col-span-2 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-widest">Actividad reciente</h2>
-              <button
-                onClick={() => router.push("/research")}
-                className="text-xs text-[#FF0033] hover:text-[#e8002e] flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                Ver todo <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-            <Card className="bg-[#141414] border border-white/[0.08] divide-y divide-white/[0.05] overflow-hidden">
-              {recentActivity.map((item, i) => {
-                const Icon = item.icon;
+        {!loading && data && (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {stats.map((stat) => {
+                const Icon = stat.icon;
                 return (
-                  <div
-                    key={i}
-                    onClick={() => router.push(item.href)}
-                    className="flex items-center gap-3 p-4 hover:bg-white/[0.03] transition-colors cursor-pointer"
+                  <Card
+                    key={stat.label}
+                    onClick={() => router.push(stat.href)}
+                    className="bg-[#141414] border border-white/[0.08] p-5 hover:border-white/[0.14] hover:bg-[#181818] transition-all group cursor-pointer"
                   >
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${item.color}12` }}
-                    >
-                      <Icon style={{ color: item.color, width: 15, height: 15 }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-zinc-200 font-medium truncate">{item.title}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <Clock className="w-3 h-3 text-zinc-700" />
-                        <span className="text-[11px] text-zinc-600">{item.time}</span>
+                    <div className="flex items-start justify-between">
+                      <div className="w-9 h-9 rounded-xl bg-[#FF0033]/10 flex items-center justify-center group-hover:bg-[#FF0033]/15 transition-colors">
+                        <Icon style={{ width: 17, height: 17 }} className="text-[#FF0033]" />
                       </div>
                     </div>
-                    <Badge
-                      className="text-[10px] capitalize flex-shrink-0"
-                      style={{
-                        background: item.status === "completado" || item.status === "listo"
-                          ? "rgba(34,197,94,0.08)"
-                          : "rgba(255,255,255,0.04)",
-                        color: item.status === "completado" || item.status === "listo"
-                          ? "#4ade80"
-                          : "#71717a",
-                        borderColor: item.status === "completado" || item.status === "listo"
-                          ? "rgba(74,222,128,0.2)"
-                          : "rgba(255,255,255,0.08)",
-                      }}
-                    >
-                      {item.status}
-                    </Badge>
-                  </div>
+                    <div className="mt-4">
+                      <p className="text-2xl font-bold text-white tracking-tight">{stat.value}</p>
+                      <p className="text-xs text-zinc-500 mt-0.5">{stat.label}</p>
+                    </div>
+                  </Card>
                 );
               })}
-            </Card>
-          </div>
-        </div>
+            </div>
 
-        {/* Projects */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-widest">Proyectos</h2>
-            <button
-              onClick={() => setShowNewProject(true)}
-              className="text-xs text-[#FF0033] hover:text-[#e8002e] flex items-center gap-1 cursor-pointer transition-colors"
-            >
-              Gestionar <ArrowRight className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {projects.map((proj) => (
-              <Card
-                key={proj.name}
-                onClick={() => router.push("/research")}
-                className="bg-[#141414] border border-white/[0.08] p-5 hover:border-white/[0.14] hover:bg-[#181818] transition-all group cursor-pointer"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${proj.color}15` }}>
-                    <Play style={{ color: proj.color, width: 18, height: 18 }} />
-                  </div>
-                  <Badge
-                    className="text-[10px]"
-                    style={{
-                      background: `${proj.color}12`,
-                      color: proj.color,
-                      borderColor: `${proj.color}25`,
-                    }}
-                  >
-                    {proj.status}
-                  </Badge>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Quick Access */}
+              <div className="space-y-3">
+                <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-widest">Acceso rápido</h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {quickAccess.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link key={item.href} href={item.href}>
+                        <Card className="bg-[#141414] border border-white/[0.08] p-4 hover:border-white/[0.14] hover:bg-[#181818] transition-all cursor-pointer group h-full">
+                          <Icon style={{ width: 20, height: 20 }} className="text-[#FF0033] mb-3" />
+                          <p className="text-sm font-semibold text-white tracking-tight">{item.label}</p>
+                          <p className="text-[11px] text-zinc-600 mt-0.5">{item.desc}</p>
+                        </Card>
+                      </Link>
+                    );
+                  })}
                 </div>
-                <h3 className="font-semibold text-white mb-1 tracking-tight">{proj.name}</h3>
-                <p className="text-xs text-zinc-600">{proj.videos} videos analizados</p>
-                <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between">
-                  <span className="text-[11px] text-zinc-700">Actualizado {proj.lastUpdate}</span>
-                  <TrendingUp className="w-3.5 h-3.5 text-zinc-700 group-hover:text-[#FF0033] transition-colors" />
-                </div>
-              </Card>
-            ))}
-
-            {/* Add project card */}
-            <Card
-              onClick={() => setShowNewProject(true)}
-              className="bg-[#0f0f0f] border border-white/[0.06] border-dashed p-5 hover:border-[#FF0033]/25 hover:bg-[#FF0033]/[0.03] transition-all cursor-pointer group flex flex-col items-center justify-center min-h-[148px]"
-            >
-              <div className="w-10 h-10 rounded-xl bg-[#FF0033]/10 flex items-center justify-center mb-3 group-hover:bg-[#FF0033]/15 transition-colors">
-                <Plus className="w-5 h-5 text-[#FF0033]" />
               </div>
-              <p className="text-sm font-semibold text-zinc-600 group-hover:text-zinc-300 transition-colors">Nuevo proyecto</p>
-            </Card>
-          </div>
-        </div>
+
+              {/* Recent Activity */}
+              <div className="lg:col-span-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-widest">Actividad reciente</h2>
+                  <button
+                    onClick={() => router.push("/research")}
+                    className="text-xs text-[#FF0033] hover:text-[#e8002e] flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    Ver todo <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+                <Card className="bg-[#141414] border border-white/[0.08] divide-y divide-white/[0.05] overflow-hidden">
+                  {data.activity.length === 0 && (
+                    <div className="p-6 text-center text-xs text-zinc-600">
+                      Aún no hay actividad. Empieza analizando un video o generando contenido.
+                    </div>
+                  )}
+                  {data.activity.map((item) => {
+                    const meta = activityMeta[item.type];
+                    const Icon = meta.icon;
+                    const positive = positiveStatuses.has(item.status);
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => router.push(item.href)}
+                        className="flex items-center gap-3 p-4 hover:bg-white/[0.03] transition-colors cursor-pointer"
+                      >
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: `${meta.color}12` }}
+                        >
+                          <Icon style={{ color: meta.color, width: 15, height: 15 }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-zinc-200 font-medium truncate">{item.title}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Clock className="w-3 h-3 text-zinc-700" />
+                            <span className="text-[11px] text-zinc-600">{formatRelativeTime(item.createdAt)}</span>
+                          </div>
+                        </div>
+                        <Badge
+                          className="text-[10px] capitalize flex-shrink-0"
+                          style={{
+                            background: positive ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.04)",
+                            color: positive ? "#4ade80" : "#71717a",
+                            borderColor: positive ? "rgba(74,222,128,0.2)" : "rgba(255,255,255,0.08)",
+                          }}
+                        >
+                          {item.status}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </Card>
+              </div>
+            </div>
+
+            {/* Projects */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-widest">Proyectos</h2>
+                <button
+                  onClick={() => setShowNewProject(true)}
+                  className="text-xs text-[#FF0033] hover:text-[#e8002e] flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  Gestionar <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {data.projects.map((proj) => (
+                  <Card
+                    key={proj.id}
+                    onClick={() => router.push("/research")}
+                    className="bg-[#141414] border border-white/[0.08] p-5 hover:border-white/[0.14] hover:bg-[#181818] transition-all group cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${proj.color}15` }}>
+                        <Play style={{ color: proj.color, width: 18, height: 18 }} />
+                      </div>
+                      <Badge
+                        className="text-[10px]"
+                        style={{
+                          background: `${proj.color}12`,
+                          color: proj.color,
+                          borderColor: `${proj.color}25`,
+                        }}
+                      >
+                        {proj.status}
+                      </Badge>
+                    </div>
+                    <h3 className="font-semibold text-white mb-1 tracking-tight">{proj.name}</h3>
+                    <p className="text-xs text-zinc-600">{proj.videos} videos analizados</p>
+                    <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between">
+                      <span className="text-[11px] text-zinc-700">Actualizado {formatRelativeTime(proj.updatedAt)}</span>
+                      <TrendingUp className="w-3.5 h-3.5 text-zinc-700 group-hover:text-[#FF0033] transition-colors" />
+                    </div>
+                  </Card>
+                ))}
+
+                {/* Add project card */}
+                <Card
+                  onClick={() => setShowNewProject(true)}
+                  className="bg-[#0f0f0f] border border-white/[0.06] border-dashed p-5 hover:border-[#FF0033]/25 hover:bg-[#FF0033]/[0.03] transition-all cursor-pointer group flex flex-col items-center justify-center min-h-[148px]"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#FF0033]/10 flex items-center justify-center mb-3 group-hover:bg-[#FF0033]/15 transition-colors">
+                    <Plus className="w-5 h-5 text-[#FF0033]" />
+                  </div>
+                  <p className="text-sm font-semibold text-zinc-600 group-hover:text-zinc-300 transition-colors">Nuevo proyecto</p>
+                </Card>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* New Project Modal */}
@@ -323,10 +394,10 @@ export function DashboardPage() {
               </Button>
               <Button
                 onClick={handleCreateProject}
-                disabled={!newProjectName.trim()}
+                disabled={!newProjectName.trim() || saving}
                 className="flex-1 bg-[#FF0033] hover:bg-[#e8002e] text-white shadow-[0_0_16px_rgba(255,0,51,0.2)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
-                Crear proyecto
+                {saving ? "Creando..." : "Crear proyecto"}
               </Button>
             </div>
           </div>
