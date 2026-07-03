@@ -135,6 +135,21 @@ function formatTime(totalSecs: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+// Some infra in front of the app (proxies, hosting platform limits) can
+// reject a request before it reaches our route handlers and respond with a
+// plain-text body like "Request Entity Too Large" instead of JSON — parsing
+// that with res.json() throws a cryptic "Unexpected token" error. Read as
+// text first so we can surface a readable message instead.
+async function safeJson(res: Response): Promise<unknown> {
+  const raw = await res.text();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error(`Respuesta inesperada del servidor (${res.status}).`);
+  }
+}
+
 // ─── MicRecorder ─────────────────────────────────────────────────────────────
 
 function MicRecorder() {
@@ -294,7 +309,7 @@ function PersonalityDialog({ voice, open, onClose, onSave }: PersonalityDialogPr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voiceProfileId: voice.id }),
       });
-      const data = (await res.json()) as { personality?: string; error?: string };
+      const data = (await safeJson(res)) as { personality?: string; error?: string };
       if (!res.ok || data.error || !data.personality) {
         throw new Error(data.error ?? "No se pudo analizar el audio.");
       }
@@ -516,12 +531,12 @@ export function VoicePage() {
         ]);
 
         const prefs = prefsRes.ok
-          ? (await prefsRes.json()) as {
+          ? ((await safeJson(prefsRes)) as {
               selectedVoice?: string;
               speed?: string;
               style?: string;
               text?: string;
-            }
+            })
           : {};
         if (cancelled) return;
 
@@ -533,7 +548,7 @@ export function VoicePage() {
           if (prefs.selectedVoice) setSelectedVoiceState(prefs.selectedVoice);
           return;
         }
-        const data = (await profilesRes.json()) as {
+        const data = (await safeJson(profilesRes)) as {
           profiles?: {
             id: string;
             name: string;
@@ -605,7 +620,7 @@ export function VoicePage() {
       fd.append("file", file);
       fd.append("name", file.name.replace(/\.[^.]+$/, ""));
       const res = await fetch("/api/voice/clone", { method: "POST", body: fd });
-      const data = (await res.json()) as {
+      const data = (await safeJson(res)) as {
         success?: boolean;
         voiceId?: string;
         status?: string;
@@ -663,7 +678,7 @@ export function VoicePage() {
     try {
       const res = await fetch(`/api/voice?type=generations&voiceId=${encodeURIComponent(voiceId)}`);
       if (!res.ok) return;
-      const data = (await res.json()) as { generations?: SavedGeneration[] };
+      const data = (await safeJson(res)) as { generations?: SavedGeneration[] };
       setHistory(data.generations ?? []);
     } catch {
       // Keep whatever history was already shown
@@ -680,7 +695,7 @@ export function VoicePage() {
       const res = await fetch(`/api/voice?type=generation&id=${encodeURIComponent(generationId)}`, {
         method: "DELETE",
       });
-      const data = (await res.json()) as { success?: boolean; error?: string };
+      const data = (await safeJson(res)) as { success?: boolean; error?: string };
       if (!res.ok || data.error) throw new Error(data.error ?? `Error ${res.status}`);
       setHistory((prev) => prev.filter((g) => g.id !== generationId));
     } catch {
@@ -742,7 +757,7 @@ export function VoicePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ voiceProfileId: selectedVoice }),
         });
-        const data = (await res.json()) as {
+        const data = (await safeJson(res)) as {
           success?: boolean;
           audioUrl?: string;
           sourceFileUrl?: string | null;
@@ -824,7 +839,7 @@ export function VoicePage() {
       });
 
       if (!res.ok) {
-        const data = await res.json() as { error?: string };
+        const data = (await safeJson(res)) as { error?: string };
         throw new Error(data.error ?? `Error ${res.status}`);
       }
 
@@ -851,7 +866,7 @@ export function VoicePage() {
   // ── Delete voice ────────────────────────────────────────────────────────────
   const handleDeleteVoice = async (voiceId: string) => {
     const res = await fetch(`/api/voice?id=${encodeURIComponent(voiceId)}`, { method: "DELETE" });
-    const data = (await res.json()) as { success?: boolean; error?: string };
+    const data = (await safeJson(res)) as { success?: boolean; error?: string };
     if (!res.ok || data.error) throw new Error(data.error ?? `Error ${res.status}`);
 
     setVoices((prev) => {
@@ -893,7 +908,7 @@ export function VoicePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "rewrite", text, personality: activeVoice.personality }),
       });
-      const data = await res.json() as { text?: string; error?: string };
+      const data = (await safeJson(res)) as { text?: string; error?: string };
       if (data.error) {
         setLlmError(data.error);
         setPrevText(null);
@@ -920,7 +935,7 @@ export function VoicePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "compose", personality: activeVoice.personality }),
       });
-      const data = await res.json() as { text?: string; error?: string };
+      const data = (await safeJson(res)) as { text?: string; error?: string };
       if (data.error) {
         setLlmError(data.error);
         setPrevText(null);
