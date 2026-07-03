@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useTtsModel, TTS_MODELS } from "@/hooks/useTtsModel";
+import { createClient as createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -616,10 +617,38 @@ export function VoicePage() {
 
     setIsUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("name", file.name.replace(/\.[^.]+$/, ""));
-      const res = await fetch("/api/voice/clone", { method: "POST", body: fd });
+      // 1. Get a signed URL and upload the file straight to storage — this
+      // bypasses the request body limit our own API routes are capped at
+      // when deployed (e.g. Vercel caps a Function's body around 4.5MB,
+      // well under the 25MB we allow for samples here).
+      const urlRes = await fetch("/api/voice/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name }),
+      });
+      const urlData = (await safeJson(urlRes)) as {
+        bucket?: string;
+        path?: string;
+        token?: string;
+        error?: string;
+      };
+      if (!urlRes.ok || urlData.error || !urlData.bucket || !urlData.path || !urlData.token) {
+        throw new Error(urlData.error ?? `Error ${urlRes.status}`);
+      }
+
+      const supabase = createSupabaseBrowserClient();
+      const { error: uploadErr } = await supabase.storage
+        .from(urlData.bucket)
+        .uploadToSignedUrl(urlData.path, urlData.token, file);
+      if (uploadErr) throw new Error(uploadErr.message);
+
+      // 2. Kick off cloning server-side with just the storage path — a tiny
+      // JSON payload, not the audio bytes.
+      const res = await fetch("/api/voice/clone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: urlData.path, name: file.name.replace(/\.[^.]+$/, "") }),
+      });
       const data = (await safeJson(res)) as {
         success?: boolean;
         voiceId?: string;

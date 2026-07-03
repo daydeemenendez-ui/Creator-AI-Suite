@@ -24,6 +24,31 @@ export async function uploadAudioFile(
   return data.publicUrl;
 }
 
+// Serverless hosts (e.g. Vercel) cap the request body a Function can receive
+// at a few MB — well under the 25MB we allow for voice samples. Route large
+// uploads around that limit by having the browser PUT the file straight to
+// Supabase Storage with a short-lived signed URL, instead of proxying the
+// bytes through our own API route.
+export async function createAudioUploadUrl(fileName: string) {
+  const supabase = createServiceClient();
+  const key = `audio/uploads/${uuidv4()}-${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET_AUDIOS)
+    .createSignedUploadUrl(key);
+
+  if (error) throw new Error(`Storage signed URL failed: ${error.message}`);
+
+  return { bucket: BUCKET_AUDIOS, path: data.path, token: data.token };
+}
+
+export async function downloadAudioFile(path: string): Promise<Buffer> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.storage.from(BUCKET_AUDIOS).download(path);
+  if (error) throw new Error(`Storage download failed: ${error.message}`);
+  return Buffer.from(await data.arrayBuffer());
+}
+
 export async function uploadVideoFile(
   buffer: Uint8Array,
   fileName: string,

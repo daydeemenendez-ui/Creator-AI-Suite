@@ -4,42 +4,38 @@ import { prisma } from "@/lib/prisma";
 import { cloneVoice, textToSpeech, getVoiceStatus } from "@/lib/minimax";
 import { mergeAudioChunks, extractAudioFromVideo } from "@/lib/ffmpeg";
 import { chunkText, previewChunks } from "@/lib/chunker";
-import { uploadAudioFile } from "@/lib/supabase/storage";
+import { uploadAudioFile, downloadAudioFile, deleteFile } from "@/lib/supabase/storage";
 import { z } from "zod";
 
 // ─────────────────────────────────────────────
 // VOICE CLONING
 // ─────────────────────────────────────────────
 
-export async function createVoiceClone(formData: FormData) {
-  const file = formData.get("file") as File | null;
-  const name = formData.get("name") as string;
-  const description = formData.get("description") as string | null;
+// `path` points at a sample the browser already uploaded straight to
+// storage via a signed URL (see /api/voice/upload-url) — this keeps the
+// actual audio bytes out of the request body, which serverless hosts like
+// Vercel cap well below the 25MB we allow for samples.
+export async function createVoiceClone(input: { path: string; name: string; description?: string | null }) {
+  const { path, name, description } = input;
 
-  if (!file || !name) {
-    return { error: "file and name are required" };
+  if (!path || !name) {
+    return { error: "path and name are required" };
   }
 
-  // Browsers report inconsistent MIME types (e.g. audio/x-wav, audio/mp4),
-  // so accept by extension as well
-  const allowedTypes = [
-    "video/mp4", "audio/mp4", "audio/mpeg", "audio/wav",
-    "audio/x-wav", "audio/wave", "audio/mp3", "audio/x-m4a",
-  ];
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const fileName = path.split("/").pop() ?? path;
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
   const allowedExts = ["mp4", "mp3", "wav", "m4a"];
-  if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
+  if (!allowedExts.includes(ext)) {
     return { error: "Unsupported file type. Use MP4, MP3 or WAV." };
   }
 
   try {
-    // eslint-disable-next-line prefer-const
-    let audioBuffer: Buffer = Buffer.from(await file.arrayBuffer() as ArrayBuffer);
+    let audioBuffer: Buffer = await downloadAudioFile(path);
 
     // Extract audio from video if MP4 — this always yields mp3 output, so the
     // filename we send onward must reflect that, not the original .mp4 name
     let audioExt = ext;
-    if (file.type === "video/mp4" || ext === "mp4") {
+    if (ext === "mp4") {
       audioBuffer = (await extractAudioFromVideo(audioBuffer, "mp4")) as Buffer;
       audioExt = "mp3";
     }
@@ -69,6 +65,10 @@ export async function createVoiceClone(formData: FormData) {
         status: status === "success" ? "READY" : "PROCESSING",
       },
     });
+
+    // Best-effort cleanup of the temporary raw upload — the processed
+    // sourceFileUrl above is what the app actually uses going forward
+    void deleteFile("audios", path).catch(() => {});
 
     return { success: true, voiceId: profile.id, miniMaxVoiceId, status };
   } catch (err) {
