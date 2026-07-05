@@ -12,12 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
-
-const projects = [
-  { id: 1, name: "Canal Principal", color: "#FF0033" },
-  { id: 2, name: "Shorts Factory",  color: "#FF6B00" },
-  { id: 3, name: "Podcast Series",  color: "#00C9FF" },
-];
+import { useProjects } from "@/components/providers/ProjectProvider";
 
 const allPages = [
   { label: "Dashboard",       href: "/" },
@@ -35,7 +30,7 @@ export function Topbar() {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeProject, setActiveProject] = useState(projects[0]);
+  const { projects, activeProject, setActiveProject, openNewProjectModal } = useProjects();
   const searchRef = useRef<HTMLInputElement>(null);
 
   const filtered = allPages.filter((p) =>
@@ -64,8 +59,8 @@ export function Topbar() {
         {/* Project selector */}
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-white/[0.04] transition-colors outline-none cursor-pointer">
-            <div className="w-2 h-2 rounded-full" style={{ background: activeProject.color }} />
-            <span className="text-sm font-medium text-zinc-200">{activeProject.name}</span>
+            <div className="w-2 h-2 rounded-full" style={{ background: activeProject?.color ?? "#FF0033" }} />
+            <span className="text-sm font-medium text-zinc-200">{activeProject?.name ?? "Sin proyectos"}</span>
             <ChevronDown className="w-3.5 h-3.5 text-zinc-600" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -75,6 +70,9 @@ export function Topbar() {
             <div className="px-2 py-1.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">
               Proyectos
             </div>
+            {projects.length === 0 && (
+              <div className="px-2 py-2 text-xs text-zinc-600">Aún no tienes proyectos</div>
+            )}
             {projects.map((p) => (
               <DropdownMenuItem
                 key={p.id}
@@ -83,7 +81,7 @@ export function Topbar() {
               >
                 <div className="w-2 h-2 rounded-full" style={{ background: p.color }} />
                 <span className="text-sm">{p.name}</span>
-                {activeProject.id === p.id && (
+                {activeProject?.id === p.id && (
                   <span className="ml-auto text-[10px] text-[#FF0033]">✓</span>
                 )}
               </DropdownMenuItem>
@@ -91,7 +89,7 @@ export function Topbar() {
             <DropdownMenuSeparator className="bg-white/[0.06]" />
             <DropdownMenuItem
               className="flex items-center gap-2 cursor-pointer hover:bg-white/[0.05] focus:bg-white/[0.05]"
-              onClick={() => router.push("/?newProject=1")}
+              onClick={() => openNewProjectModal()}
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="text-sm">Nuevo proyecto</span>

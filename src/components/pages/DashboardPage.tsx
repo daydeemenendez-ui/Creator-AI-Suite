@@ -11,16 +11,15 @@ import {
   BarChart2,
   Play,
   Plus,
-  X,
   Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useProjects } from "@/components/providers/ProjectProvider";
 
 interface Activity {
   id: string;
@@ -53,8 +52,6 @@ const quickAccess = [
   { label: "Nueva idea",      href: "/ideas",    icon: Zap,      desc: "Banco de ideas" },
 ];
 
-const projectColors = ["#FF0033", "#FF6B00", "#00C9FF", "#A855F7", "#10B981", "#F59E0B"];
-
 const activityMeta: Record<Activity["type"], { icon: typeof Video; color: string }> = {
   research: { icon: Video, color: "#FF0033" },
   content:  { icon: FileText, color: "#FF6B00" },
@@ -78,26 +75,11 @@ function formatRelativeTime(iso: string) {
   return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 }
 
-function NewProjectParamWatcher({ onTrigger }: { onTrigger: () => void }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    if (searchParams.get("newProject") === "1") {
-      onTrigger();
-      router.replace("/");
-    }
-  }, [searchParams, router, onTrigger]);
-  return null;
-}
-
 export function DashboardPage() {
   const router = useRouter();
+  const { projects, openNewProjectModal } = useProjects();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showNewProject, setShowNewProject] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [selectedColor, setSelectedColor] = useState(projectColors[0]);
-  const [saving, setSaving] = useState(false);
 
   async function fetchDashboard() {
     try {
@@ -115,23 +97,11 @@ export function DashboardPage() {
     fetchDashboard();
   }, []);
 
-  async function handleCreateProject() {
-    if (!newProjectName.trim()) return;
-    setSaving(true);
-    try {
-      const formData = new FormData();
-      formData.set("action", "create_project");
-      formData.set("name", newProjectName.trim());
-      formData.set("color", selectedColor);
-      await fetch("/api/dashboard", { method: "POST", body: formData });
-      await fetchDashboard();
-      setNewProjectName("");
-      setSelectedColor(projectColors[0]);
-      setShowNewProject(false);
-    } finally {
-      setSaving(false);
-    }
-  }
+  // Refetch dashboard project stats whenever a project is created elsewhere (e.g. from the Topbar)
+  useEffect(() => {
+    if (projects.length > 0) fetchDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects.length]);
 
   const stats = data
     ? [
@@ -144,10 +114,6 @@ export function DashboardPage() {
 
   return (
     <>
-      <Suspense fallback={null}>
-        <NewProjectParamWatcher onTrigger={() => setShowNewProject(true)} />
-      </Suspense>
-
       <div className="p-7 space-y-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -156,7 +122,7 @@ export function DashboardPage() {
             <p className="text-zinc-500 text-sm mt-1">Bienvenido de vuelta — aquí está tu resumen</p>
           </div>
           <Button
-            onClick={() => setShowNewProject(true)}
+            onClick={() => openNewProjectModal()}
             className="bg-[#FF0033] hover:bg-[#e8002e] text-white gap-2 shadow-[0_0_16px_rgba(255,0,51,0.2)] hover:shadow-[0_0_24px_rgba(255,0,51,0.3)] transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -279,7 +245,7 @@ export function DashboardPage() {
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-semibold text-zinc-600 uppercase tracking-widest">Proyectos</h2>
                 <button
-                  onClick={() => setShowNewProject(true)}
+                  onClick={() => openNewProjectModal()}
                   className="text-xs text-[#FF0033] hover:text-[#e8002e] flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   Gestionar <ArrowRight className="w-3 h-3" />
@@ -318,7 +284,7 @@ export function DashboardPage() {
 
                 {/* Add project card */}
                 <Card
-                  onClick={() => setShowNewProject(true)}
+                  onClick={() => openNewProjectModal()}
                   className="bg-[#0f0f0f] border border-white/[0.06] border-dashed p-5 hover:border-[#FF0033]/25 hover:bg-[#FF0033]/[0.03] transition-all cursor-pointer group flex flex-col items-center justify-center min-h-[148px]"
                 >
                   <div className="w-10 h-10 rounded-xl bg-[#FF0033]/10 flex items-center justify-center mb-3 group-hover:bg-[#FF0033]/15 transition-colors">
@@ -331,78 +297,6 @@ export function DashboardPage() {
           </>
         )}
       </div>
-
-      {/* New Project Modal */}
-      {showNewProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowNewProject(false)} />
-          <div className="relative bg-[#161616] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4 shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-white tracking-tight">Nuevo proyecto</h2>
-              <button
-                onClick={() => setShowNewProject(false)}
-                className="text-zinc-600 hover:text-zinc-300 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-5">
-              <div>
-                <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-2">
-                  Nombre del proyecto
-                </label>
-                <Input
-                  autoFocus
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
-                  placeholder="Ej: Canal Principal, Podcast 2025..."
-                  className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 focus:border-[#FF0033]/40"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-2">
-                  Color
-                </label>
-                <div className="flex items-center gap-2">
-                  {projectColors.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setSelectedColor(color)}
-                      className="w-7 h-7 rounded-full transition-all"
-                      style={{
-                        background: color,
-                        outline: selectedColor === color ? `2px solid ${color}` : "none",
-                        outlineOffset: "2px",
-                        transform: selectedColor === color ? "scale(1.15)" : "scale(1)",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-7">
-              <Button
-                variant="ghost"
-                onClick={() => setShowNewProject(false)}
-                className="flex-1 border border-white/10 text-zinc-500 hover:text-white hover:border-white/[0.18] transition-all"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleCreateProject}
-                disabled={!newProjectName.trim() || saving}
-                className="flex-1 bg-[#FF0033] hover:bg-[#e8002e] text-white shadow-[0_0_16px_rgba(255,0,51,0.2)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                {saving ? "Creando..." : "Crear proyecto"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
