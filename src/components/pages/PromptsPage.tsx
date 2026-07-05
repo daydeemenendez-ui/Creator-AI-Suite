@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Check, Search, Plus, Star, Tag, BookOpen, Trash2, X, Loader2 } from "lucide-react";
+import { Copy, Check, Search, Plus, Star, Tag, BookOpen, Trash2, X, Loader2, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ interface Prompt {
   title: string;
   text: string;
   starred: boolean;
+  createdAt?: string;
 }
 
 export function PromptsPage() {
@@ -30,6 +31,8 @@ export function PromptsPage() {
   const [newCategory, setNewCategory] = useState(NEW_PROMPT_CATEGORIES[0]);
   const [newText, setNewText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  const [copiedCard, setCopiedCard] = useState(false);
 
   useEffect(() => {
     fetchPrompts();
@@ -164,14 +167,15 @@ export function PromptsPage() {
           {filtered.map((prompt) => (
             <Card
               key={prompt.id}
-              className="bg-[#141414] border-white/[0.08] p-5 flex flex-col gap-3 hover:border-white/[0.14] hover:bg-[#181818] transition-all group"
+              onClick={() => setSelectedPrompt(prompt)}
+              className="bg-[#141414] border-white/[0.08] p-5 flex flex-col gap-3 hover:border-white/[0.14] hover:bg-[#181818] transition-all group cursor-pointer h-[260px]"
             >
               <div className="flex items-start justify-between">
                 <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20">
                   <Tag className="w-2.5 h-2.5 mr-1" />
                   {prompt.category}
                 </Badge>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => toggleStar(prompt.id, !prompt.starred)}
                     className={`transition-colors ${
@@ -189,16 +193,16 @@ export function PromptsPage() {
                 </div>
               </div>
 
-              <h3 className="text-sm font-semibold text-white group-hover:text-[#FF0033] transition-colors tracking-tight">
+              <h3 className="text-sm font-semibold text-white group-hover:text-[#FF0033] transition-colors tracking-tight line-clamp-1">
                 {prompt.title}
               </h3>
 
-              <p className="text-xs text-zinc-600 leading-5 flex-1 font-mono bg-[#0f0f0f] rounded-xl p-3 border border-white/[0.06]">
+              <p className="text-xs text-zinc-600 leading-5 flex-1 font-mono bg-[#0f0f0f] rounded-xl p-3 border border-white/[0.06] line-clamp-5 overflow-hidden">
                 {prompt.text}
               </p>
 
               <button
-                onClick={() => handleCopy(prompt.id, prompt.text)}
+                onClick={(e) => { e.stopPropagation(); handleCopy(prompt.id, prompt.text); }}
                 className={`flex items-center justify-center gap-2 w-full py-2 rounded-xl text-xs border transition-all ${
                   copied === prompt.id
                     ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
@@ -217,7 +221,7 @@ export function PromptsPage() {
           {/* Add new prompt card */}
           <Card
             onClick={() => setShowNewPrompt(true)}
-            className="bg-[#0f0f0f] border-white/[0.06] border-dashed p-5 hover:border-[#FF0033]/25 hover:bg-[#FF0033]/[0.02] transition-all group cursor-pointer flex flex-col items-center justify-center min-h-[180px]"
+            className="bg-[#0f0f0f] border-white/[0.06] border-dashed p-5 hover:border-[#FF0033]/25 hover:bg-[#FF0033]/[0.02] transition-all group cursor-pointer flex flex-col items-center justify-center h-[260px]"
           >
             <div className="w-10 h-10 rounded-xl bg-[#FF0033]/10 flex items-center justify-center mb-3 group-hover:bg-[#FF0033]/15 transition-colors">
               <Plus className="w-5 h-5 text-[#FF0033]" />
@@ -307,6 +311,100 @@ export function PromptsPage() {
               >
                 {saving ? "Guardando..." : "Guardar prompt"}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Prompt Detail Modal */}
+      {selectedPrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setSelectedPrompt(null)}
+        >
+          <div
+            className="bg-[#141414] border border-white/[0.1] rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/[0.07]">
+              <div className="flex items-center gap-3 min-w-0">
+                <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20 flex-shrink-0">
+                  <Tag className="w-2.5 h-2.5 mr-1" />
+                  {selectedPrompt.category}
+                </Badge>
+                <h2 className="text-sm font-semibold text-white tracking-tight line-clamp-1">
+                  {selectedPrompt.title}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => toggleStar(selectedPrompt.id, !selectedPrompt.starred)}
+                  className={`transition-colors ${
+                    selectedPrompt.starred ? "text-yellow-400" : "text-zinc-600 hover:text-yellow-400"
+                  }`}
+                >
+                  <Star className="w-4 h-4" fill={selectedPrompt.starred ? "currentColor" : "none"} />
+                </button>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedPrompt.text).catch(() => {});
+                    setCopiedCard(true);
+                    setTimeout(() => setCopiedCard(false), 2000);
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+                >
+                  {copiedCard ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  {copiedCard ? "Copiado" : "Copiar"}
+                </button>
+                <button
+                  onClick={() => {
+                    const blob = new Blob([selectedPrompt.text], { type: "text/plain;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${selectedPrompt.title ?? "prompt"}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+                >
+                  <Download className="w-3 h-3" />
+                  Exportar
+                </button>
+                <button
+                  onClick={() => {
+                    handleDelete(selectedPrompt.id);
+                    setSelectedPrompt(null);
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 border border-white/[0.08] hover:border-red-500/30 rounded-lg px-3 py-1.5 transition-all"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Eliminar
+                </button>
+                <button
+                  onClick={() => setSelectedPrompt(null)}
+                  className="text-zinc-600 hover:text-white ml-1 transition-colors text-lg leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-5">
+              <p className="text-sm text-zinc-300 leading-7 whitespace-pre-line font-mono bg-[#0f0f0f] rounded-xl p-4 border border-white/[0.06]">
+                {selectedPrompt.text}
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-white/[0.07] flex items-center justify-between">
+              <span className="text-[11px] text-zinc-600">
+                {selectedPrompt.text.split(/\s+/).length} palabras
+                {selectedPrompt.createdAt &&
+                  ` · ${new Date(selectedPrompt.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}`}
+              </span>
             </div>
           </div>
         </div>
