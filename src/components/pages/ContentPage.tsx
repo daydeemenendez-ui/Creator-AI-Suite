@@ -4,10 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import {
   Send, FileText, Lightbulb, Scissors, Search, Mail, Wand2,
   Copy, Download, RefreshCw, Sparkles, Bot, User, Trash2,
-  Library, Loader2, BookmarkPlus, Check,
+  Library, Loader2, BookmarkPlus, Check, Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -165,6 +166,11 @@ export function ContentPage() {
   const [copiedIdx, setCopiedIdx]         = useState<number | null>(null);
   const [selectedItem, setSelectedItem]   = useState<ContentOutput | null>(null);
   const [copiedCard, setCopiedCard]       = useState(false);
+  const [showAddModal, setShowAddModal]   = useState(false);
+  const [addType, setAddType]             = useState("IDEA");
+  const [addTitle, setAddTitle]           = useState("");
+  const [addBody, setAddBody]             = useState("");
+  const [addSaving, setAddSaving]         = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   function goToSection(key: string) {
@@ -271,6 +277,34 @@ export function ContentPage() {
     }
   }
 
+  // ── Add manual content ─────────────────────────────────────────────────
+
+  function openAddModal() {
+    setAddType(activeContent !== "todos" ? TYPE_MAP[activeContent] ?? "IDEA" : "IDEA");
+    setAddTitle("");
+    setAddBody("");
+    setShowAddModal(true);
+  }
+
+  async function handleAddManual() {
+    if (!addBody.trim() || addSaving) return;
+    setAddSaving(true);
+    try {
+      const fd = new FormData();
+      fd.append("action", "save_output");
+      fd.append("type", addType);
+      fd.append("title", addTitle.trim() || "Contenido sin título");
+      fd.append("body", addBody);
+      const res = await fetch("/api/content", { method: "POST", body: fd });
+      if (res.ok) {
+        setShowAddModal(false);
+        await fetchOutputs();
+      }
+    } finally {
+      setAddSaving(false);
+    }
+  }
+
   // ── Filtered outputs ───────────────────────────────────────────────────
 
   const filtered = activeContent === "todos"
@@ -369,6 +403,16 @@ export function ContentPage() {
               </TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2 py-2">
+              {activeTab === "library" && (
+                <Button
+                  onClick={openAddModal}
+                  size="sm"
+                  className="bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200 border border-white/10 gap-1.5 text-xs h-7"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Añadir contenido
+                </Button>
+              )}
               <Badge className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                 OpenRouter
               </Badge>
@@ -520,9 +564,17 @@ export function ContentPage() {
                 <span className="text-sm">Cargando biblioteca...</span>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-40 text-zinc-700 gap-2">
+              <div className="flex flex-col items-center justify-center h-40 text-zinc-700 gap-3">
                 <Library className="w-8 h-8" />
                 <p className="text-sm">No hay elementos en esta categoría aún.</p>
+                <Button
+                  onClick={openAddModal}
+                  size="sm"
+                  className="bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200 border border-white/10 gap-1.5 text-xs h-7"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Añadir contenido
+                </Button>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
@@ -574,6 +626,97 @@ export function ContentPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Add Manual Content Modal */}
+      {showAddModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            className="bg-[#141414] border border-white/[0.1] rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-white/[0.07]">
+              <h2 className="text-sm font-semibold text-white tracking-tight">
+                Añadir contenido
+              </h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-zinc-600 hover:text-white transition-colors text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div>
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
+                  Tipo
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {SAVE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setAddType(opt.value)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-all ${
+                        addType === opt.value
+                          ? "border-white/20 bg-white/[0.08] text-white"
+                          : "border-white/[0.08] text-zinc-500 hover:text-zinc-300 hover:border-white/15"
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: opt.color }} />
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
+                  Título
+                </p>
+                <Input
+                  value={addTitle}
+                  onChange={(e) => setAddTitle(e.target.value)}
+                  placeholder="Título del contenido..."
+                  className="bg-[#0d0d0d] border-white/10 text-white placeholder:text-zinc-700 text-sm h-9 focus:border-[#FF0033]/40"
+                />
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
+                  Contenido
+                </p>
+                <Textarea
+                  value={addBody}
+                  onChange={(e) => setAddBody(e.target.value)}
+                  placeholder="Escribe o pega aquí tu contenido..."
+                  className="bg-[#0d0d0d] border-white/10 text-white placeholder:text-zinc-700 text-sm resize-none min-h-[220px] focus:border-[#FF0033]/40"
+                />
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-white/[0.07] flex items-center justify-end gap-2">
+              <Button
+                onClick={() => setShowAddModal(false)}
+                variant="ghost"
+                className="text-zinc-400 hover:text-white text-sm h-9"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleAddManual}
+                disabled={!addBody.trim() || addSaving}
+                className="bg-[#FF0033] hover:bg-[#e8002e] text-white text-sm h-9 gap-2 disabled:opacity-40"
+              >
+                {addSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content Modal */}
       {selectedItem && (
