@@ -24,9 +24,15 @@ export async function transcribeAudio(
 ): Promise<string> {
   const apiKey = await getApiKey();
 
+  // Groq's extension whitelist check is case-sensitive, so a filename like
+  // "Video.MP4" (common from phones/screen recorders) gets rejected even
+  // though "video.mp4" is accepted. Normalize the extension we send.
+  const dot = fileName.lastIndexOf(".");
+  const safeFileName = dot === -1 ? fileName : fileName.slice(0, dot) + fileName.slice(dot).toLowerCase();
+
   const form = new FormData();
   const blob = new Blob([new Uint8Array(audioBuffer)], { type: guessMime(fileName) });
-  form.append("file", blob, fileName);
+  form.append("file", blob, safeFileName);
   form.append("model", "whisper-large-v3-turbo"); // faster + cheaper, same quality
   form.append("response_format", "text");
   if (language) form.append("language", language);
