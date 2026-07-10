@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listPrompts, createPrompt, deletePrompt, togglePromptStarred } from "@/actions/prompt";
+import { listPrompts, createPrompt, deletePrompt, togglePromptStarred, updatePromptImages } from "@/actions/prompt";
 
 export async function GET() {
   const result = await listPrompts();
@@ -25,6 +25,13 @@ export async function POST(req: NextRequest) {
     const id = formData.get("id") as string;
     const starred = formData.get("starred") === "true";
     const result = await togglePromptStarred(id, starred);
+    return NextResponse.json(result);
+  }
+
+  if (action === "update_images") {
+    const id = formData.get("id") as string;
+    const imagesRaw = formData.get("images") as string;
+    const result = await updatePromptImages(id, imagesRaw ? JSON.parse(imagesRaw) : []);
     return NextResponse.json(result);
   }
 

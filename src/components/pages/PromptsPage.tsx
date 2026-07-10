@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Check, Search, Plus, Star, Tag, BookOpen, Trash2, X, Loader2, Download } from "lucide-react";
+import {
+  Copy, Check, Search, Plus, Star, Tag, BookOpen, Trash2, X, Loader2, Download,
+  ImagePlus, Image as ImageIcon, Layers,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +14,11 @@ import { Button } from "@/components/ui/button";
 const CATEGORIES = ["Todos", "YouTube", "Guiones", "SEO", "Redes", "Email", "Ideas"];
 const NEW_PROMPT_CATEGORIES = CATEGORIES.filter((c) => c !== "Todos");
 
+interface PromptImage {
+  path: string;
+  url: string;
+}
+
 interface Prompt {
   id: string;
   category: string;
@@ -18,6 +26,28 @@ interface Prompt {
   text: string;
   starred: boolean;
   createdAt?: string;
+  images?: PromptImage[] | null;
+  parentId?: string | null;
+  children?: Prompt[];
+}
+
+async function uploadImageFile(file: File): Promise<PromptImage | null> {
+  const urlRes = await fetch("/api/upload-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileName: file.name, kind: "image" }),
+  });
+  if (!urlRes.ok) return null;
+  const { signedURL, path, publicURL } = await urlRes.json() as { signedURL: string; path: string; publicURL: string };
+
+  const uploadRes = await fetch(signedURL, {
+    method: "PUT",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+  if (!uploadRes.ok) return null;
+
+  return { path, url: publicURL };
 }
 
 export function PromptsPage() {
@@ -30,9 +60,24 @@ export function PromptsPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState(NEW_PROMPT_CATEGORIES[0]);
   const [newText, setNewText] = useState("");
+  const [newImages, setNewImages] = useState<PromptImage[]>([]);
+  const [uploadingNewImage, setUploadingNewImage] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [copiedCard, setCopiedCard] = useState(false);
+  const [showChildForm, setShowChildForm] = useState(false);
+  const [childTitle, setChildTitle] = useState("");
+  const [childText, setChildText] = useState("");
+  const [childImages, setChildImages] = useState<PromptImage[]>([]);
+  const [uploadingChildImage, setUploadingChildImage] = useState(false);
+  const [savingChild, setSavingChild] = useState(false);
+  const [uploadingDetailImage, setUploadingDetailImage] = useState(false);
+
+  const selectedPrompt = prompts.find((p) => p.id === selectedPromptId) ?? null;
+
+  useEffect(() => {
+    setShowChildForm(false);
+  }, [selectedPromptId]);
 
   useEffect(() => {
     fetchPrompts();
@@ -76,6 +121,7 @@ export function PromptsPage() {
 
   async function handleDelete(id: string) {
     setPrompts((prev) => prev.filter((p) => p.id !== id));
+    setSelectedPromptId((prev) => (prev === id ? null : prev));
     const formData = new FormData();
     formData.set("action", "delete");
     formData.set("id", id);
@@ -91,18 +137,122 @@ export function PromptsPage() {
       formData.set("title", newTitle.trim());
       formData.set("category", newCategory);
       formData.set("text", newText.trim());
+      if (newImages.length > 0) formData.set("images", JSON.stringify(newImages));
       const res = await fetch("/api/prompts", { method: "POST", body: formData });
       const data = await res.json();
       if (data.success && data.prompt) {
-        setPrompts((prev) => [data.prompt, ...prev]);
+        setPrompts((prev) => [{ ...data.prompt, children: [] }, ...prev]);
       }
       setNewTitle("");
       setNewText("");
       setNewCategory(NEW_PROMPT_CATEGORIES[0]);
+      setNewImages([]);
       setShowNewPrompt(false);
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleNewImageSelect(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploadingNewImage(true);
+    try {
+      for (const file of Array.from(files)) {
+        const img = await uploadImageFile(file);
+        if (img) setNewImages((prev) => [...prev, img]);
+      }
+    } finally {
+      setUploadingNewImage(false);
+    }
+  }
+
+  async function persistPromptImages(promptId: string, images: PromptImage[]) {
+    setPrompts((prev) => prev.map((p) => (p.id === promptId ? { ...p, images } : p)));
+    const formData = new FormData();
+    formData.set("action", "update_images");
+    formData.set("id", promptId);
+    formData.set("images", JSON.stringify(images));
+    await fetch("/api/prompts", { method: "POST", body: formData });
+  }
+
+  async function handleDetailImageSelect(promptId: string, currentImages: PromptImage[], files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploadingDetailImage(true);
+    try {
+      const uploaded: PromptImage[] = [];
+      for (const file of Array.from(files)) {
+        const img = await uploadImageFile(file);
+        if (img) uploaded.push(img);
+      }
+      if (uploaded.length > 0) await persistPromptImages(promptId, [...currentImages, ...uploaded]);
+    } finally {
+      setUploadingDetailImage(false);
+    }
+  }
+
+  function handleRemoveImage(promptId: string, currentImages: PromptImage[], path: string) {
+    void persistPromptImages(promptId, currentImages.filter((img) => img.path !== path));
+  }
+
+  function closeNewPromptModal() {
+    setShowNewPrompt(false);
+    setNewTitle("");
+    setNewText("");
+    setNewCategory(NEW_PROMPT_CATEGORIES[0]);
+    setNewImages([]);
+  }
+
+  function openChildForm() {
+    setChildTitle("");
+    setChildText("");
+    setChildImages([]);
+    setShowChildForm(true);
+  }
+
+  async function handleChildImageSelect(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploadingChildImage(true);
+    try {
+      for (const file of Array.from(files)) {
+        const img = await uploadImageFile(file);
+        if (img) setChildImages((prev) => [...prev, img]);
+      }
+    } finally {
+      setUploadingChildImage(false);
+    }
+  }
+
+  async function handleCreateChild(parentId: string) {
+    if (!childTitle.trim() || !childText.trim() || savingChild) return;
+    setSavingChild(true);
+    try {
+      const formData = new FormData();
+      formData.set("action", "create");
+      formData.set("title", childTitle.trim());
+      formData.set("text", childText.trim());
+      formData.set("parentId", parentId);
+      if (childImages.length > 0) formData.set("images", JSON.stringify(childImages));
+      const res = await fetch("/api/prompts", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.success && data.prompt) {
+        setPrompts((prev) => prev.map((p) => (
+          p.id === parentId ? { ...p, children: [...(p.children ?? []), data.prompt] } : p
+        )));
+      }
+      setShowChildForm(false);
+    } finally {
+      setSavingChild(false);
+    }
+  }
+
+  async function handleDeleteChild(parentId: string, childId: string) {
+    setPrompts((prev) => prev.map((p) => (
+      p.id === parentId ? { ...p, children: (p.children ?? []).filter((c) => c.id !== childId) } : p
+    )));
+    const formData = new FormData();
+    formData.set("action", "delete");
+    formData.set("id", childId);
+    await fetch("/api/prompts", { method: "POST", body: formData });
   }
 
   return (
@@ -167,7 +317,7 @@ export function PromptsPage() {
           {filtered.map((prompt) => (
             <Card
               key={prompt.id}
-              onClick={() => setSelectedPrompt(prompt)}
+              onClick={() => setSelectedPromptId(prompt.id)}
               className="bg-[#141414] border-white/[0.08] p-5 flex flex-col gap-3 hover:border-white/[0.14] hover:bg-[#181818] transition-all group cursor-pointer h-[260px]"
             >
               <div className="flex items-start justify-between">
@@ -193,9 +343,21 @@ export function PromptsPage() {
                 </div>
               </div>
 
-              <h3 className="text-sm font-semibold text-white group-hover:text-[#FF0033] transition-colors tracking-tight line-clamp-1">
-                {prompt.title}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-white group-hover:text-[#FF0033] transition-colors tracking-tight line-clamp-1 flex-1 min-w-0">
+                  {prompt.title}
+                </h3>
+                {!!prompt.images?.length && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-zinc-600 flex-shrink-0">
+                    <ImageIcon className="w-3 h-3" /> {prompt.images.length}
+                  </span>
+                )}
+                {!!prompt.children?.length && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-zinc-600 flex-shrink-0">
+                    <Layers className="w-3 h-3" /> {prompt.children.length}
+                  </span>
+                )}
+              </div>
 
               <p className="text-xs text-zinc-600 leading-5 flex-1 font-mono bg-[#0f0f0f] rounded-xl p-3 border border-white/[0.06] line-clamp-5 overflow-hidden">
                 {prompt.text}
@@ -236,20 +398,20 @@ export function PromptsPage() {
 
       {/* New Prompt Modal */}
       {showNewPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowNewPrompt(false)} />
-          <div className="relative bg-[#161616] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4 shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
-            <div className="flex items-center justify-between mb-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={closeNewPromptModal} />
+          <div className="relative bg-[#161616] border border-white/10 rounded-2xl w-full max-w-md shadow-[0_24px_80px_rgba(0,0,0,0.8)] max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-6 pb-5 flex-shrink-0">
               <h2 className="text-lg font-bold text-white flex items-center gap-2 tracking-tight">
                 <BookOpen className="w-5 h-5 text-[#FF0033]" />
                 Nuevo prompt
               </h2>
-              <button onClick={() => setShowNewPrompt(false)} className="text-zinc-600 hover:text-white transition-colors">
+              <button onClick={closeNewPromptModal} className="text-zinc-600 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 px-6 overflow-y-auto flex-1 min-h-0">
               <div>
                 <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-2">
                   Título
@@ -290,16 +452,48 @@ export function PromptsPage() {
                   value={newText}
                   onChange={(e) => setNewText(e.target.value)}
                   placeholder="Escribe el prompt, usa [VARIABLES] entre corchetes..."
-                  className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 focus:border-[#FF0033]/40 resize-none font-mono text-xs"
+                  className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 focus:border-[#FF0033]/40 resize-none font-mono text-xs max-h-40 overflow-y-auto"
                   rows={5}
                 />
               </div>
+              <div>
+                <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-2">
+                  Imágenes de referencia
+                </label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {newImages.map((img) => (
+                    <div key={img.path} className="relative w-14 h-14 rounded-lg overflow-hidden border border-white/10 group/img">
+                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => setNewImages((prev) => prev.filter((i) => i.path !== img.path))}
+                        className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity"
+                      >
+                        <X className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-14 h-14 rounded-lg border border-dashed border-white/15 flex items-center justify-center cursor-pointer hover:border-[#FF0033]/40 transition-colors flex-shrink-0">
+                    {uploadingNewImage ? (
+                      <Loader2 className="w-4 h-4 text-zinc-500 animate-spin" />
+                    ) : (
+                      <ImagePlus className="w-4 h-4 text-zinc-500" />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => { void handleNewImageSelect(e.target.files); e.target.value = ""; }}
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-3 p-6 pt-4 flex-shrink-0">
               <Button
                 variant="ghost"
-                onClick={() => setShowNewPrompt(false)}
+                onClick={closeNewPromptModal}
                 className="flex-1 border border-white/10 text-zinc-500 hover:text-white hover:border-white/[0.18]"
               >
                 Cancelar
@@ -320,7 +514,7 @@ export function PromptsPage() {
       {selectedPrompt && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          onClick={() => setSelectedPrompt(null)}
+          onClick={() => setSelectedPromptId(null)}
         >
           <div
             className="bg-[#141414] border border-white/[0.1] rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl"
@@ -373,17 +567,14 @@ export function PromptsPage() {
                   Exportar
                 </button>
                 <button
-                  onClick={() => {
-                    handleDelete(selectedPrompt.id);
-                    setSelectedPrompt(null);
-                  }}
+                  onClick={() => handleDelete(selectedPrompt.id)}
                   className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 border border-white/[0.08] hover:border-red-500/30 rounded-lg px-3 py-1.5 transition-all"
                 >
                   <Trash2 className="w-3 h-3" />
                   Eliminar
                 </button>
                 <button
-                  onClick={() => setSelectedPrompt(null)}
+                  onClick={() => setSelectedPromptId(null)}
                   className="text-zinc-600 hover:text-white ml-1 transition-colors text-lg leading-none"
                 >
                   ✕
@@ -392,10 +583,156 @@ export function PromptsPage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
               <p className="text-sm text-zinc-300 leading-7 whitespace-pre-line font-mono bg-[#0f0f0f] rounded-xl p-4 border border-white/[0.06]">
                 {selectedPrompt.text}
               </p>
+
+              {/* Reference images */}
+              <div>
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
+                  Imágenes de referencia
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(selectedPrompt.images ?? []).map((img) => (
+                    <div key={img.path} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10 group/img">
+                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => handleRemoveImage(selectedPrompt.id, selectedPrompt.images ?? [], img.path)}
+                        className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity"
+                      >
+                        <X className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-16 h-16 rounded-lg border border-dashed border-white/15 flex items-center justify-center cursor-pointer hover:border-[#FF0033]/40 transition-colors flex-shrink-0">
+                    {uploadingDetailImage ? (
+                      <Loader2 className="w-4 h-4 text-zinc-500 animate-spin" />
+                    ) : (
+                      <ImagePlus className="w-4 h-4 text-zinc-500" />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        void handleDetailImageSelect(selectedPrompt.id, selectedPrompt.images ?? [], e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Sub-prompts */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">
+                    Subtarjetas
+                  </p>
+                  <button
+                    onClick={openChildForm}
+                    className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-white transition-colors"
+                  >
+                    <Plus className="w-3 h-3" /> Añadir subtarjeta
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {(selectedPrompt.children ?? []).map((child) => (
+                    <div key={child.id} className="bg-[#0f0f0f] rounded-xl p-3 border border-white/[0.06]">
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <h4 className="text-xs font-semibold text-white line-clamp-1">{child.title}</h4>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => handleCopy(child.id, child.text)}
+                            className="text-zinc-600 hover:text-white transition-colors"
+                          >
+                            {copied === child.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteChild(selectedPrompt.id, child.id)}
+                            className="text-zinc-600 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-zinc-500 font-mono line-clamp-3 whitespace-pre-line">{child.text}</p>
+                      {!!child.images?.length && (
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          {child.images.map((img) => (
+                            <img key={img.path} src={img.url} alt="" className="w-8 h-8 rounded object-cover border border-white/10" />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {showChildForm && (
+                    <div className="bg-[#0f0f0f] rounded-xl p-3 border border-[#FF0033]/25 space-y-2">
+                      <Input
+                        autoFocus
+                        value={childTitle}
+                        onChange={(e) => setChildTitle(e.target.value)}
+                        placeholder="Título de la subtarjeta"
+                        className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 text-xs h-8 focus:border-[#FF0033]/40"
+                      />
+                      <Textarea
+                        value={childText}
+                        onChange={(e) => setChildText(e.target.value)}
+                        placeholder="Texto del prompt..."
+                        className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 focus:border-[#FF0033]/40 resize-none font-mono text-xs max-h-32 overflow-y-auto"
+                        rows={3}
+                      />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {childImages.map((img) => (
+                          <div key={img.path} className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/10 group/img">
+                            <img src={img.url} alt="" className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => setChildImages((prev) => prev.filter((i) => i.path !== img.path))}
+                              className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity"
+                            >
+                              <X className="w-3 h-3 text-white" />
+                            </button>
+                          </div>
+                        ))}
+                        <label className="w-10 h-10 rounded-lg border border-dashed border-white/15 flex items-center justify-center cursor-pointer hover:border-[#FF0033]/40 transition-colors flex-shrink-0">
+                          {uploadingChildImage ? (
+                            <Loader2 className="w-3.5 h-3.5 text-zinc-500 animate-spin" />
+                          ) : (
+                            <ImagePlus className="w-3.5 h-3.5 text-zinc-500" />
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => { void handleChildImageSelect(e.target.files); e.target.value = ""; }}
+                          />
+                        </label>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setShowChildForm(false)}
+                          className="flex-1 h-8 text-xs border border-white/10 text-zinc-500 hover:text-white hover:border-white/[0.18]"
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          onClick={() => handleCreateChild(selectedPrompt.id)}
+                          disabled={!childTitle.trim() || !childText.trim() || savingChild}
+                          className="flex-1 h-8 text-xs bg-[#FF0033] hover:bg-[#e8002e] text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {savingChild ? "Guardando..." : "Guardar"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Footer */}

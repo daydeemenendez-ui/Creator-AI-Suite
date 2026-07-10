@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 const KIND_CONFIG = {
   audio: { bucket: process.env.SUPABASE_BUCKET_AUDIOS ?? "creator-audios", prefix: "audio" },
   document: { bucket: process.env.SUPABASE_BUCKET_DOCUMENTS ?? "creator-documents", prefix: "documents" },
+  image: { bucket: process.env.SUPABASE_BUCKET_IMAGES ?? "creator-images", prefix: "images" },
 } as const;
 
 export async function POST(req: NextRequest) {
@@ -60,5 +61,6 @@ export async function POST(req: NextRequest) {
   const relativeUrl = data.url ?? "";
   // relativeUrl is relative to /storage/v1
   const fullURL = `${supabaseUrl}/storage/v1${relativeUrl}`;
-  return NextResponse.json({ signedURL: fullURL, path, safeName });
+  const publicURL = `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
+  return NextResponse.json({ signedURL: fullURL, path, safeName, publicURL });
 }
