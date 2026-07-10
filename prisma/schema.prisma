@@ -239,6 +239,10 @@ model Prompt {
   title     String
   text      String
   starred   Boolean  @default(false)
+  images    Json?
+  parentId  String?
+  parent    Prompt?  @relation("PromptChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Prompt[] @relation("PromptChildren")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
