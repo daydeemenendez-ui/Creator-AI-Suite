@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   Copy, Check, Search, Plus, Star, Tag, BookOpen, Trash2, X, Loader2, Download,
-  ImagePlus, Image as ImageIcon, Layers,
+  ImagePlus, Image as ImageIcon, Layers, ZoomIn,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,8 +72,18 @@ export function PromptsPage() {
   const [uploadingChildImage, setUploadingChildImage] = useState(false);
   const [savingChild, setSavingChild] = useState(false);
   const [uploadingDetailImage, setUploadingDetailImage] = useState(false);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   const selectedPrompt = prompts.find((p) => p.id === selectedPromptId) ?? null;
+
+  useEffect(() => {
+    if (!viewingImage) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setViewingImage(null);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [viewingImage]);
 
   useEffect(() => {
     setShowChildForm(false);
@@ -463,12 +473,20 @@ export function PromptsPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {newImages.map((img) => (
                     <div key={img.path} className="relative w-14 h-14 rounded-lg overflow-hidden border border-white/10 group/img">
-                      <img src={img.url} alt="" className="w-full h-full object-cover" />
                       <button
-                        onClick={() => setNewImages((prev) => prev.filter((i) => i.path !== img.path))}
-                        className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity"
+                        onClick={() => setViewingImage(img.url)}
+                        className="w-full h-full block"
                       >
-                        <X className="w-4 h-4 text-white" />
+                        <img src={img.url} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
+                          <ZoomIn className="w-4 h-4 text-white" />
+                        </div>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setNewImages((prev) => prev.filter((i) => i.path !== img.path)); }}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-black border border-white/20 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-red-500/80"
+                      >
+                        <X className="w-2.5 h-2.5 text-white" />
                       </button>
                     </div>
                   ))}
@@ -596,12 +614,20 @@ export function PromptsPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {(selectedPrompt.images ?? []).map((img) => (
                     <div key={img.path} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10 group/img">
-                      <img src={img.url} alt="" className="w-full h-full object-cover" />
                       <button
-                        onClick={() => handleRemoveImage(selectedPrompt.id, selectedPrompt.images ?? [], img.path)}
-                        className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity"
+                        onClick={() => setViewingImage(img.url)}
+                        className="w-full h-full block"
                       >
-                        <X className="w-4 h-4 text-white" />
+                        <img src={img.url} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
+                          <ZoomIn className="w-4 h-4 text-white" />
+                        </div>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRemoveImage(selectedPrompt.id, selectedPrompt.images ?? [], img.path); }}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-black border border-white/20 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-red-500/80"
+                      >
+                        <X className="w-2.5 h-2.5 text-white" />
                       </button>
                     </div>
                   ))}
@@ -663,7 +689,9 @@ export function PromptsPage() {
                       {!!child.images?.length && (
                         <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                           {child.images.map((img) => (
-                            <img key={img.path} src={img.url} alt="" className="w-8 h-8 rounded object-cover border border-white/10" />
+                            <button key={img.path} onClick={() => setViewingImage(img.url)} className="flex-shrink-0">
+                              <img src={img.url} alt="" className="w-8 h-8 rounded object-cover border border-white/10 hover:border-[#FF0033]/40 transition-colors" />
+                            </button>
                           ))}
                         </div>
                       )}
@@ -689,12 +717,14 @@ export function PromptsPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         {childImages.map((img) => (
                           <div key={img.path} className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/10 group/img">
-                            <img src={img.url} alt="" className="w-full h-full object-cover" />
+                            <button onClick={() => setViewingImage(img.url)} className="w-full h-full block">
+                              <img src={img.url} alt="" className="w-full h-full object-cover" />
+                            </button>
                             <button
-                              onClick={() => setChildImages((prev) => prev.filter((i) => i.path !== img.path))}
-                              className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity"
+                              onClick={(e) => { e.stopPropagation(); setChildImages((prev) => prev.filter((i) => i.path !== img.path)); }}
+                              className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-black border border-white/20 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-red-500/80"
                             >
-                              <X className="w-3 h-3 text-white" />
+                              <X className="w-2 h-2 text-white" />
                             </button>
                           </div>
                         ))}
@@ -744,6 +774,36 @@ export function PromptsPage() {
               </span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Image Lightbox */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm p-6"
+          onClick={() => setViewingImage(null)}
+        >
+          <button
+            onClick={() => setViewingImage(null)}
+            className="absolute top-5 right-5 text-white/70 hover:text-white transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={viewingImage}
+            alt=""
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <a
+            href={viewingImage}
+            download
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-5 right-5 flex items-center gap-1.5 text-xs text-white/80 hover:text-white border border-white/20 hover:border-white/40 rounded-lg px-3 py-1.5 transition-all bg-black/40"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Descargar
+          </a>
         </div>
       )}
     </div>
