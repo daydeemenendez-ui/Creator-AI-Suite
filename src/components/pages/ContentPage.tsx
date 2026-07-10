@@ -21,12 +21,21 @@ interface ContentOutput {
   title: string;
   body: string;
   createdAt: string;
+  metadata?: { section?: string } | null;
 }
 
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
+
+interface CustomSection {
+  id: string;
+  label: string;
+  color: string;
+}
+
+const SECTION_COLORS = ["#FF0033", "#F59E0B", "#3B82F6", "#A855F7", "#10B981", "#EC4899"];
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -171,6 +180,11 @@ export function ContentPage() {
   const [addTitle, setAddTitle]           = useState("");
   const [addBody, setAddBody]             = useState("");
   const [addSaving, setAddSaving]         = useState(false);
+  const [customSections, setCustomSections] = useState<CustomSection[]>([]);
+  const [showSectionModal, setShowSectionModal] = useState(false);
+  const [newSectionName, setNewSectionName]     = useState("");
+  const [newSectionColor, setNewSectionColor]   = useState(SECTION_COLORS[0]);
+  const [creatingSection, setCreatingSection]   = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   function goToSection(key: string) {
@@ -193,7 +207,39 @@ export function ContentPage() {
     }
   }
 
-  useEffect(() => { fetchOutputs(); }, []);
+  async function fetchSections() {
+    const res = await fetch("/api/content?kind=sections");
+    if (res.ok) {
+      const data = await res.json() as { sections: CustomSection[] };
+      setCustomSections(data.sections ?? []);
+    }
+  }
+
+  useEffect(() => { fetchOutputs(); fetchSections(); }, []);
+
+  // ── Custom sections ("Generar nuevo") ──────────────────────────────────
+
+  async function handleCreateSection() {
+    const label = newSectionName.trim();
+    if (!label || creatingSection) return;
+    setCreatingSection(true);
+    try {
+      const updated = [...customSections, { id: `custom-${Date.now()}`, label, color: newSectionColor }];
+      const fd = new FormData();
+      fd.append("action", "save_sections");
+      fd.append("sections", JSON.stringify(updated));
+      const res = await fetch("/api/content", { method: "POST", body: fd });
+      if (res.ok) {
+        setCustomSections(updated);
+        setShowSectionModal(false);
+        setNewSectionName("");
+        setNewSectionColor(SECTION_COLORS[0]);
+        goToSection(`custom:${updated[updated.length - 1].id}`);
+      }
+    } finally {
+      setCreatingSection(false);
+    }
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -279,8 +325,12 @@ export function ContentPage() {
 
   // ── Add manual content ─────────────────────────────────────────────────
 
+  const activeCustomSection = activeContent.startsWith("custom:")
+    ? customSections.find((s) => `custom:${s.id}` === activeContent)
+    : undefined;
+
   function openAddModal() {
-    setAddType(activeContent !== "todos" ? TYPE_MAP[activeContent] ?? "IDEA" : "IDEA");
+    setAddType(activeCustomSection ? "POST" : activeContent !== "todos" ? TYPE_MAP[activeContent] ?? "IDEA" : "IDEA");
     setAddTitle("");
     setAddBody("");
     setShowAddModal(true);
@@ -295,6 +345,9 @@ export function ContentPage() {
       fd.append("type", addType);
       fd.append("title", addTitle.trim() || "Contenido sin título");
       fd.append("body", addBody);
+      if (activeCustomSection) {
+        fd.append("metadata", JSON.stringify({ section: activeCustomSection.id }));
+      }
       const res = await fetch("/api/content", { method: "POST", body: fd });
       if (res.ok) {
         setShowAddModal(false);
@@ -307,9 +360,18 @@ export function ContentPage() {
 
   // ── Filtered outputs ───────────────────────────────────────────────────
 
-  const filtered = activeContent === "todos"
-    ? outputs
-    : outputs.filter((o) => o.type === TYPE_MAP[activeContent]);
+  const filtered = activeCustomSection
+    ? outputs.filter((o) => o.metadata?.section === activeCustomSection.id)
+    : activeContent === "todos"
+      ? outputs
+      : outputs.filter((o) => o.type === TYPE_MAP[activeContent]);
+
+  function itemLabel(item: ContentOutput) {
+    const section = item.metadata?.section
+      ? customSections.find((s) => s.id === item.metadata?.section)
+      : undefined;
+    return section?.label ?? TYPE_LABEL[item.type] ?? item.type;
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -375,8 +437,46 @@ export function ContentPage() {
             );
           })}
 
+          {customSections.length > 0 && (
+            <>
+              <div className="border-t border-white/[0.05] my-2" />
+              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider px-2 mb-2">
+                Mis secciones
+              </p>
+              {customSections.map((section) => {
+                const key = `custom:${section.id}`;
+                const count = outputs.filter((o) => o.metadata?.section === section.id).length;
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => goToSection(key)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
+                      activeContent === key && activeTab === "library"
+                        ? "bg-white/[0.06] border border-white/10"
+                        : "border border-transparent hover:bg-white/[0.03]"
+                    }`}
+                  >
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${section.color}15` }}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" style={{ color: section.color, width: 14, height: 14 }} />
+                    </div>
+                    <span className="text-sm text-zinc-300 flex-1 truncate">{section.label}</span>
+                    <Badge className="text-[10px] bg-white/[0.04] border-white/10 text-zinc-600">
+                      {count}
+                    </Badge>
+                  </button>
+                );
+              })}
+            </>
+          )}
+
           <div className="pt-4">
-            <Button className="w-full bg-[#FF0033]/10 hover:bg-[#FF0033]/20 text-[#FF0033] border border-[#FF0033]/20 gap-2 text-sm transition-all">
+            <Button
+              onClick={() => setShowSectionModal(true)}
+              className="w-full bg-[#FF0033]/10 hover:bg-[#FF0033]/20 text-[#FF0033] border border-[#FF0033]/20 gap-2 text-sm transition-all"
+            >
               <Wand2 className="w-3.5 h-3.5" />
               Generar nuevo
             </Button>
@@ -586,7 +686,7 @@ export function ContentPage() {
                   >
                     <div className="flex items-start justify-between mb-3">
                       <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20">
-                        {TYPE_LABEL[item.type] ?? item.type}
+                        {itemLabel(item)}
                       </Badge>
                       <span className="text-[11px] text-zinc-600">
                         {new Date(item.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
@@ -650,27 +750,39 @@ export function ContentPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              <div>
-                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
-                  Tipo
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {SAVE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setAddType(opt.value)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-all ${
-                        addType === opt.value
-                          ? "border-white/20 bg-white/[0.08] text-white"
-                          : "border-white/[0.08] text-zinc-500 hover:text-zinc-300 hover:border-white/15"
-                      }`}
-                    >
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: opt.color }} />
-                      {opt.label}
-                    </button>
-                  ))}
+              {activeCustomSection ? (
+                <div>
+                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
+                    Sección
+                  </p>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-white/[0.08] bg-white/[0.04] text-zinc-300 w-fit">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: activeCustomSection.color }} />
+                    {activeCustomSection.label}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
+                    Tipo
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {SAVE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setAddType(opt.value)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-all ${
+                          addType === opt.value
+                            ? "border-white/20 bg-white/[0.08] text-white"
+                            : "border-white/[0.08] text-zinc-500 hover:text-zinc-300 hover:border-white/15"
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: opt.color }} />
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
@@ -718,6 +830,83 @@ export function ContentPage() {
         </div>
       )}
 
+      {/* New Section Modal */}
+      {showSectionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setShowSectionModal(false)}
+        >
+          <div
+            className="bg-[#141414] border border-white/[0.1] rounded-2xl w-full max-w-md shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-white/[0.07]">
+              <h2 className="text-sm font-semibold text-white tracking-tight">
+                Nueva sección
+              </h2>
+              <button
+                onClick={() => setShowSectionModal(false)}
+                className="text-zinc-600 hover:text-white transition-colors text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
+                  Nombre
+                </p>
+                <Input
+                  value={newSectionName}
+                  onChange={(e) => setNewSectionName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleCreateSection(); }}
+                  placeholder="Ej. Podcasts, Colaboraciones, Newsletter..."
+                  className="bg-[#0d0d0d] border-white/10 text-white placeholder:text-zinc-700 text-sm h-9 focus:border-[#FF0033]/40"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
+                  Color
+                </p>
+                <div className="flex gap-2">
+                  {SECTION_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setNewSectionColor(color)}
+                      className={`w-7 h-7 rounded-full transition-all ${
+                        newSectionColor === color ? "ring-2 ring-white/60 ring-offset-2 ring-offset-[#141414]" : ""
+                      }`}
+                      style={{ background: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-white/[0.07] flex items-center justify-end gap-2">
+              <Button
+                onClick={() => setShowSectionModal(false)}
+                variant="ghost"
+                className="text-zinc-400 hover:text-white text-sm h-9"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleCreateSection}
+                disabled={!newSectionName.trim() || creatingSection}
+                className="bg-[#FF0033] hover:bg-[#e8002e] text-white text-sm h-9 gap-2 disabled:opacity-40"
+              >
+                {creatingSection ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                Crear sección
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content Modal */}
       {selectedItem && (
         <div
@@ -732,7 +921,7 @@ export function ContentPage() {
             <div className="flex items-center justify-between p-5 border-b border-white/[0.07]">
               <div className="flex items-center gap-3">
                 <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20">
-                  {TYPE_LABEL[selectedItem.type] ?? selectedItem.type}
+                  {itemLabel(selectedItem)}
                 </Badge>
                 <h2 className="text-sm font-semibold text-white tracking-tight line-clamp-1">
                   {selectedItem.title}

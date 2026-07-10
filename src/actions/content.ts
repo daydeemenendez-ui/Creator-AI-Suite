@@ -362,14 +362,40 @@ export async function deleteOutput(id: string) {
   return { success: true };
 }
 
-export async function saveOutput(type: ContentType, title: string, body: string) {
+export async function saveOutput(
+  type: ContentType,
+  title: string,
+  body: string,
+  metadata?: Record<string, unknown>,
+) {
   const output = await prisma.contentOutput.create({
     data: {
       type,
       title,
       body,
+      metadata,
       model: process.env.OPENROUTER_DEFAULT_MODEL ?? "openrouter",
     } as Parameters<typeof prisma.contentOutput.create>[0]["data"],
   });
   return { success: true, output };
+}
+
+// ─────────────────────────────────────────────
+// CUSTOM SECTIONS (Content Studio sidebar)
+// ─────────────────────────────────────────────
+
+const CUSTOM_SECTIONS_KEY = "content_studio_custom_sections";
+
+export async function getCustomSections() {
+  const row = await prisma.appSettings.findUnique({ where: { key: CUSTOM_SECTIONS_KEY } });
+  return { sections: row ? JSON.parse(row.value) : [] };
+}
+
+export async function saveCustomSections(sections: unknown) {
+  await prisma.appSettings.upsert({
+    where:  { key: CUSTOM_SECTIONS_KEY },
+    update: { value: JSON.stringify(sections) },
+    create: { key: CUSTOM_SECTIONS_KEY, value: JSON.stringify(sections) },
+  });
+  return { success: true };
 }

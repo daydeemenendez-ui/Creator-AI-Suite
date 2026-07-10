@@ -11,6 +11,8 @@ import {
   listAllOutputs,
   deleteOutput,
   saveOutput,
+  saveCustomSections,
+  getCustomSections,
 } from "@/actions/content";
 
 export async function POST(req: NextRequest) {
@@ -28,8 +30,16 @@ export async function POST(req: NextRequest) {
     const type = formData.get("type") as ContentType;
     const title = formData.get("title") as string;
     const body = formData.get("body") as string;
+    const metadataRaw = formData.get("metadata") as string | null;
     if (!type || !body) return NextResponse.json({ error: "type and body required" }, { status: 400 });
-    const result = await saveOutput(type, title || "Sin título", body);
+    const metadata = metadataRaw ? JSON.parse(metadataRaw) : undefined;
+    const result = await saveOutput(type, title || "Sin título", body, metadata);
+    return NextResponse.json(result);
+  }
+
+  if (action === "save_sections") {
+    const sectionsRaw = formData.get("sections") as string;
+    const result = await saveCustomSections(sectionsRaw ? JSON.parse(sectionsRaw) : []);
     return NextResponse.json(result);
   }
 
@@ -52,6 +62,11 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const transcriptId = searchParams.get("transcriptId");
+
+  if (searchParams.get("kind") === "sections") {
+    const result = await getCustomSections();
+    return NextResponse.json(result);
+  }
 
   if (!transcriptId) {
     const result = await listAllOutputs();
