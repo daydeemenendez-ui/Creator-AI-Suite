@@ -364,7 +364,7 @@ export function ContentPage() {
     ? outputs.filter((o) => o.metadata?.section === activeCustomSection.id)
     : activeContent === "todos"
       ? outputs
-      : outputs.filter((o) => o.type === TYPE_MAP[activeContent]);
+      : outputs.filter((o) => o.type === TYPE_MAP[activeContent] && !o.metadata?.section);
 
   function itemLabel(item: ContentOutput) {
     const section = item.metadata?.section
@@ -412,7 +412,7 @@ export function ContentPage() {
             const Icon = type.icon;
             const key = type.label.toLowerCase() as string;
             const dbType = TYPE_MAP[key];
-            const count = outputs.filter((o) => o.type === dbType).length;
+            const count = outputs.filter((o) => o.type === dbType && !o.metadata?.section).length;
             return (
               <button
                 key={type.label}
