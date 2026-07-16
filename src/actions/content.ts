@@ -362,6 +362,14 @@ export async function deleteOutput(id: string) {
   return { success: true };
 }
 
+export async function updateOutput(id: string, title: string, body: string) {
+  const output = await prisma.contentOutput.update({
+    where: { id },
+    data: { title, body },
+  });
+  return { success: true, output };
+}
+
 export async function saveOutput(
   type: ContentType,
   title: string,

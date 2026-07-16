@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   listIdeas,
   createIdea,
+  updateIdea,
   deleteIdea,
   updateIdeaPriority,
   toggleIdeaStarred,
@@ -20,6 +21,15 @@ export async function POST(req: NextRequest) {
 
   if (action === "create") {
     const result = await createIdea(formData);
+    return NextResponse.json(result);
+  }
+
+  if (action === "update") {
+    const id = formData.get("id") as string;
+    const title = formData.get("title") as string;
+    const description = (formData.get("description") as string) || null;
+    if (!id || !title?.trim()) return NextResponse.json({ error: "id and title required" }, { status: 400 });
+    const result = await updateIdea(id, title.trim(), description);
     return NextResponse.json(result);
   }
 

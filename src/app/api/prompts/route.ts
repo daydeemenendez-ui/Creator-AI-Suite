@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listPrompts, createPrompt, deletePrompt, togglePromptStarred, updatePromptImages } from "@/actions/prompt";
+import { listPrompts, createPrompt, updatePrompt, deletePrompt, togglePromptStarred, updatePromptImages } from "@/actions/prompt";
 
 export async function GET() {
   const result = await listPrompts();
@@ -12,6 +12,16 @@ export async function POST(req: NextRequest) {
 
   if (action === "create") {
     const result = await createPrompt(formData);
+    return NextResponse.json(result);
+  }
+
+  if (action === "update") {
+    const id = formData.get("id") as string;
+    const title = formData.get("title") as string;
+    const text = formData.get("text") as string;
+    const category = (formData.get("category") as string) || undefined;
+    if (!id || !title?.trim() || !text?.trim()) return NextResponse.json({ error: "id, title and text required" }, { status: 400 });
+    const result = await updatePrompt(id, title.trim(), category, text.trim());
     return NextResponse.json(result);
   }
 

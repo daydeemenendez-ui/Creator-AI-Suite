@@ -13,6 +13,7 @@ import {
   saveOutput,
   saveCustomSections,
   getCustomSections,
+  updateOutput,
 } from "@/actions/content";
 
 export async function POST(req: NextRequest) {
@@ -34,6 +35,15 @@ export async function POST(req: NextRequest) {
     if (!type || !body) return NextResponse.json({ error: "type and body required" }, { status: 400 });
     const metadata = metadataRaw ? JSON.parse(metadataRaw) : undefined;
     const result = await saveOutput(type, title || "Sin título", body, metadata);
+    return NextResponse.json(result);
+  }
+
+  if (action === "update_output") {
+    const id = formData.get("id") as string;
+    const title = formData.get("title") as string;
+    const body = formData.get("body") as string;
+    if (!id || !body) return NextResponse.json({ error: "id and body required" }, { status: 400 });
+    const result = await updateOutput(id, title || "Sin título", body);
     return NextResponse.json(result);
   }
 

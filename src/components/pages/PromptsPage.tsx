@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   Copy, Check, Search, Plus, Star, Tag, BookOpen, Trash2, X, Loader2, Download,
-  ImagePlus, Image as ImageIcon, Layers, ZoomIn,
+  ImagePlus, Image as ImageIcon, Layers, ZoomIn, Pencil,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -73,6 +73,15 @@ export function PromptsPage() {
   const [savingChild, setSavingChild] = useState(false);
   const [uploadingDetailImage, setUploadingDetailImage] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editText, setEditText] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editingChildId, setEditingChildId] = useState<string | null>(null);
+  const [editChildTitle, setEditChildTitle] = useState("");
+  const [editChildText, setEditChildText] = useState("");
+  const [savingChildEdit, setSavingChildEdit] = useState(false);
 
   const selectedPrompt = prompts.find((p) => p.id === selectedPromptId) ?? null;
 
@@ -87,6 +96,8 @@ export function PromptsPage() {
 
   useEffect(() => {
     setShowChildForm(false);
+    setIsEditingPrompt(false);
+    setEditingChildId(null);
   }, [selectedPromptId]);
 
   useEffect(() => {
@@ -252,6 +263,65 @@ export function PromptsPage() {
       setShowChildForm(false);
     } finally {
       setSavingChild(false);
+    }
+  }
+
+  function openEditPrompt() {
+    if (!selectedPrompt) return;
+    setEditTitle(selectedPrompt.title);
+    setEditCategory(selectedPrompt.category);
+    setEditText(selectedPrompt.text);
+    setIsEditingPrompt(true);
+  }
+
+  async function handleSaveEditPrompt() {
+    if (!selectedPrompt || !editTitle.trim() || !editText.trim() || editSaving) return;
+    setEditSaving(true);
+    try {
+      const formData = new FormData();
+      formData.set("action", "update");
+      formData.set("id", selectedPrompt.id);
+      formData.set("title", editTitle.trim());
+      formData.set("text", editText.trim());
+      if (!selectedPrompt.parentId) formData.set("category", editCategory);
+      const res = await fetch("/api/prompts", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.success && data.prompt) {
+        setPrompts((prev) => prev.map((p) => (p.id === selectedPrompt.id ? { ...p, ...data.prompt } : p)));
+      }
+      setIsEditingPrompt(false);
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  function openEditChild(child: Prompt) {
+    setEditingChildId(child.id);
+    setEditChildTitle(child.title);
+    setEditChildText(child.text);
+  }
+
+  async function handleSaveEditChild(parentId: string) {
+    if (!editingChildId || !editChildTitle.trim() || !editChildText.trim() || savingChildEdit) return;
+    setSavingChildEdit(true);
+    try {
+      const formData = new FormData();
+      formData.set("action", "update");
+      formData.set("id", editingChildId);
+      formData.set("title", editChildTitle.trim());
+      formData.set("text", editChildText.trim());
+      const res = await fetch("/api/prompts", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.success && data.prompt) {
+        setPrompts((prev) => prev.map((p) => (
+          p.id === parentId
+            ? { ...p, children: (p.children ?? []).map((c) => (c.id === editingChildId ? { ...c, ...data.prompt } : c)) }
+            : p
+        )));
+      }
+      setEditingChildId(null);
+    } finally {
+      setSavingChildEdit(false);
     }
   }
 
@@ -541,56 +611,95 @@ export function PromptsPage() {
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-white/[0.07]">
               <div className="flex items-center gap-3 min-w-0">
-                <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20 flex-shrink-0">
-                  <Tag className="w-2.5 h-2.5 mr-1" />
-                  {selectedPrompt.category}
-                </Badge>
-                <h2 className="text-sm font-semibold text-white tracking-tight line-clamp-1">
-                  {selectedPrompt.title}
-                </h2>
+                {!isEditingPrompt && (
+                  <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20 flex-shrink-0">
+                    <Tag className="w-2.5 h-2.5 mr-1" />
+                    {selectedPrompt.category}
+                  </Badge>
+                )}
+                {isEditingPrompt ? (
+                  <Input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    autoFocus
+                    className="bg-[#0d0d0d] border-white/10 text-white text-sm h-8 focus:border-[#FF0033]/40"
+                  />
+                ) : (
+                  <h2 className="text-sm font-semibold text-white tracking-tight line-clamp-1">
+                    {selectedPrompt.title}
+                  </h2>
+                )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => toggleStar(selectedPrompt.id, !selectedPrompt.starred)}
-                  className={`transition-colors ${
-                    selectedPrompt.starred ? "text-yellow-400" : "text-zinc-600 hover:text-yellow-400"
-                  }`}
-                >
-                  <Star className="w-4 h-4" fill={selectedPrompt.starred ? "currentColor" : "none"} />
-                </button>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedPrompt.text).catch(() => {});
-                    setCopiedCard(true);
-                    setTimeout(() => setCopiedCard(false), 2000);
-                  }}
-                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
-                >
-                  {copiedCard ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                  {copiedCard ? "Copiado" : "Copiar"}
-                </button>
-                <button
-                  onClick={() => {
-                    const blob = new Blob([selectedPrompt.text], { type: "text/plain;charset=utf-8" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `${selectedPrompt.title ?? "prompt"}.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
-                >
-                  <Download className="w-3 h-3" />
-                  Exportar
-                </button>
-                <button
-                  onClick={() => handleDelete(selectedPrompt.id)}
-                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 border border-white/[0.08] hover:border-red-500/30 rounded-lg px-3 py-1.5 transition-all"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Eliminar
-                </button>
+                {isEditingPrompt ? (
+                  <>
+                    <button
+                      onClick={() => setIsEditingPrompt(false)}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSaveEditPrompt}
+                      disabled={!editTitle.trim() || !editText.trim() || editSaving}
+                      className="flex items-center gap-1.5 text-xs text-white bg-[#FF0033] hover:bg-[#e8002e] rounded-lg px-3 py-1.5 transition-all disabled:opacity-40"
+                    >
+                      {editSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      Guardar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => toggleStar(selectedPrompt.id, !selectedPrompt.starred)}
+                      className={`transition-colors ${
+                        selectedPrompt.starred ? "text-yellow-400" : "text-zinc-600 hover:text-yellow-400"
+                      }`}
+                    >
+                      <Star className="w-4 h-4" fill={selectedPrompt.starred ? "currentColor" : "none"} />
+                    </button>
+                    <button
+                      onClick={openEditPrompt}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedPrompt.text).catch(() => {});
+                        setCopiedCard(true);
+                        setTimeout(() => setCopiedCard(false), 2000);
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+                    >
+                      {copiedCard ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      {copiedCard ? "Copiado" : "Copiar"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([selectedPrompt.text], { type: "text/plain;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${selectedPrompt.title ?? "prompt"}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+                    >
+                      <Download className="w-3 h-3" />
+                      Exportar
+                    </button>
+                    <button
+                      onClick={() => handleDelete(selectedPrompt.id)}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 border border-white/[0.08] hover:border-red-500/30 rounded-lg px-3 py-1.5 transition-all"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Eliminar
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => setSelectedPromptId(null)}
                   className="text-zinc-600 hover:text-white ml-1 transition-colors text-lg leading-none"
@@ -602,9 +711,39 @@ export function PromptsPage() {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
-              <p className="text-sm text-zinc-300 leading-7 whitespace-pre-line font-mono bg-[#0f0f0f] rounded-xl p-4 border border-white/[0.06]">
-                {selectedPrompt.text}
-              </p>
+              {isEditingPrompt && !selectedPrompt.parentId && (
+                <div>
+                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">
+                    Categoría
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {NEW_PROMPT_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setEditCategory(cat)}
+                        className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full border transition-all ${
+                          editCategory === cat
+                            ? "bg-[#FF0033]/12 border-[#FF0033]/35 text-white"
+                            : "border-white/10 text-zinc-500 hover:text-zinc-200 hover:border-white/[0.18]"
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {isEditingPrompt ? (
+                <Textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="bg-[#0f0f0f] border-white/10 text-white text-sm resize-none min-h-[200px] font-mono focus:border-[#FF0033]/40"
+                />
+              ) : (
+                <p className="text-sm text-zinc-300 leading-7 whitespace-pre-line font-mono bg-[#0f0f0f] rounded-xl p-4 border border-white/[0.06]">
+                  {selectedPrompt.text}
+                </p>
+              )}
 
               {/* Reference images */}
               <div>
@@ -668,24 +807,65 @@ export function PromptsPage() {
                 <div className="space-y-2">
                   {(selectedPrompt.children ?? []).map((child) => (
                     <div key={child.id} className="bg-[#0f0f0f] rounded-xl p-3 border border-white/[0.06]">
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <h4 className="text-xs font-semibold text-white line-clamp-1">{child.title}</h4>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <button
-                            onClick={() => handleCopy(child.id, child.text)}
-                            className="text-zinc-600 hover:text-white transition-colors"
-                          >
-                            {copied === child.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteChild(selectedPrompt.id, child.id)}
-                            className="text-zinc-600 hover:text-red-400 transition-colors"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                      {editingChildId === child.id ? (
+                        <div className="space-y-2">
+                          <Input
+                            autoFocus
+                            value={editChildTitle}
+                            onChange={(e) => setEditChildTitle(e.target.value)}
+                            className="bg-[#111111] border-white/10 text-white text-xs h-8 focus:border-[#FF0033]/40"
+                          />
+                          <Textarea
+                            value={editChildText}
+                            onChange={(e) => setEditChildText(e.target.value)}
+                            className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 focus:border-[#FF0033]/40 resize-none font-mono text-xs max-h-32 overflow-y-auto"
+                            rows={3}
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              onClick={() => setEditingChildId(null)}
+                              className="flex-1 h-8 text-xs border border-white/10 text-zinc-500 hover:text-white hover:border-white/[0.18]"
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              onClick={() => handleSaveEditChild(selectedPrompt.id)}
+                              disabled={!editChildTitle.trim() || !editChildText.trim() || savingChildEdit}
+                              className="flex-1 h-8 text-xs bg-[#FF0033] hover:bg-[#e8002e] text-white disabled:opacity-40"
+                            >
+                              {savingChildEdit ? "Guardando..." : "Guardar"}
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <p className="text-[11px] text-zinc-500 font-mono line-clamp-3 whitespace-pre-line">{child.text}</p>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <h4 className="text-xs font-semibold text-white line-clamp-1">{child.title}</h4>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <button
+                                onClick={() => handleCopy(child.id, child.text)}
+                                className="text-zinc-600 hover:text-white transition-colors"
+                              >
+                                {copied === child.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                              </button>
+                              <button
+                                onClick={() => openEditChild(child)}
+                                className="text-zinc-600 hover:text-white transition-colors"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteChild(selectedPrompt.id, child.id)}
+                                className="text-zinc-600 hover:text-red-400 transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-zinc-500 font-mono line-clamp-3 whitespace-pre-line">{child.text}</p>
+                        </>
+                      )}
                       {!!child.images?.length && (
                         <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                           {child.images.map((img) => (

@@ -39,6 +39,15 @@ export async function createIdea(formData: FormData) {
   }
 }
 
+export async function updateIdea(id: string, title: string, description: string | null) {
+  try {
+    const idea = await prisma.idea.update({ where: { id }, data: { title, description } });
+    return { success: true, idea };
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
 export async function deleteIdea(id: string) {
   try {
     await prisma.idea.delete({ where: { id } });

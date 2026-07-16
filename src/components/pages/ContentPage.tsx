@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Send, FileText, Lightbulb, Scissors, Search, Mail, Wand2,
   Copy, Download, RefreshCw, Sparkles, Bot, User, Trash2,
-  Library, Loader2, BookmarkPlus, Check, Plus,
+  Library, Loader2, BookmarkPlus, Check, Plus, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -175,6 +175,10 @@ export function ContentPage() {
   const [copiedIdx, setCopiedIdx]         = useState<number | null>(null);
   const [selectedItem, setSelectedItem]   = useState<ContentOutput | null>(null);
   const [copiedCard, setCopiedCard]       = useState(false);
+  const [isEditingItem, setIsEditingItem] = useState(false);
+  const [editTitle, setEditTitle]         = useState("");
+  const [editBody, setEditBody]           = useState("");
+  const [editSaving, setEditSaving]       = useState(false);
   const [showAddModal, setShowAddModal]   = useState(false);
   const [addType, setAddType]             = useState("IDEA");
   const [addTitle, setAddTitle]           = useState("");
@@ -355,6 +359,34 @@ export function ContentPage() {
       }
     } finally {
       setAddSaving(false);
+    }
+  }
+
+  function openEditItem() {
+    if (!selectedItem) return;
+    setEditTitle(selectedItem.title);
+    setEditBody(selectedItem.body);
+    setIsEditingItem(true);
+  }
+
+  async function handleSaveEditItem() {
+    if (!selectedItem || !editBody.trim() || editSaving) return;
+    setEditSaving(true);
+    try {
+      const fd = new FormData();
+      fd.append("action", "update_output");
+      fd.append("id", selectedItem.id);
+      fd.append("title", editTitle.trim() || "Sin título");
+      fd.append("body", editBody);
+      const res = await fetch("/api/content", { method: "POST", body: fd });
+      if (res.ok) {
+        const updated = { ...selectedItem, title: editTitle.trim() || "Sin título", body: editBody };
+        setOutputs((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+        setSelectedItem(updated);
+        setIsEditingItem(false);
+      }
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -681,7 +713,7 @@ export function ContentPage() {
                 {filtered.map((item) => (
                   <Card
                     key={item.id}
-                    onClick={() => setSelectedItem(item)}
+                    onClick={() => { setSelectedItem(item); setIsEditingItem(false); }}
                     className="bg-[#141414] border-white/[0.08] p-4 hover:border-[#FF0033]/30 hover:bg-[#181818] cursor-pointer transition-all group"
                   >
                     <div className="flex items-start justify-between mb-3">
@@ -911,7 +943,7 @@ export function ContentPage() {
       {selectedItem && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          onClick={() => setSelectedItem(null)}
+          onClick={() => { setSelectedItem(null); setIsEditingItem(false); }}
         >
           <div
             className="bg-[#141414] border border-white/[0.1] rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl"
@@ -919,53 +951,89 @@ export function ContentPage() {
           >
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-white/[0.07]">
-              <div className="flex items-center gap-3">
-                <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20">
+              <div className="flex items-center gap-3 min-w-0">
+                <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20 flex-shrink-0">
                   {itemLabel(selectedItem)}
                 </Badge>
-                <h2 className="text-sm font-semibold text-white tracking-tight line-clamp-1">
-                  {selectedItem.title}
-                </h2>
+                {isEditingItem ? (
+                  <Input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="bg-[#0d0d0d] border-white/10 text-white text-sm h-8 focus:border-[#FF0033]/40"
+                  />
+                ) : (
+                  <h2 className="text-sm font-semibold text-white tracking-tight line-clamp-1">
+                    {selectedItem.title}
+                  </h2>
+                )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {isEditingItem ? (
+                  <>
+                    <button
+                      onClick={() => setIsEditingItem(false)}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSaveEditItem}
+                      disabled={!editBody.trim() || editSaving}
+                      className="flex items-center gap-1.5 text-xs text-white bg-[#FF0033] hover:bg-[#e8002e] rounded-lg px-3 py-1.5 transition-all disabled:opacity-40"
+                    >
+                      {editSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      Guardar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={openEditItem}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedItem.body);
+                        setCopiedCard(true);
+                        setTimeout(() => setCopiedCard(false), 2000);
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+                    >
+                      {copiedCard ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      {copiedCard ? "Copiado" : "Copiar"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([selectedItem.body], { type: "text/plain;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${selectedItem.title ?? "contenido"}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+                    >
+                      <Download className="w-3 h-3" />
+                      Exportar
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await handleDelete(selectedItem.id);
+                        setSelectedItem(null);
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 border border-white/[0.08] hover:border-red-500/30 rounded-lg px-3 py-1.5 transition-all"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Eliminar
+                    </button>
+                  </>
+                )}
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedItem.body);
-                    setCopiedCard(true);
-                    setTimeout(() => setCopiedCard(false), 2000);
-                  }}
-                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
-                >
-                  {copiedCard ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                  {copiedCard ? "Copiado" : "Copiar"}
-                </button>
-                <button
-                  onClick={() => {
-                    const blob = new Blob([selectedItem.body], { type: "text/plain;charset=utf-8" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `${selectedItem.title ?? "contenido"}.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white border border-white/[0.08] hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
-                >
-                  <Download className="w-3 h-3" />
-                  Exportar
-                </button>
-                <button
-                  onClick={async () => {
-                    await handleDelete(selectedItem.id);
-                    setSelectedItem(null);
-                  }}
-                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 border border-white/[0.08] hover:border-red-500/30 rounded-lg px-3 py-1.5 transition-all"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Eliminar
-                </button>
-                <button
-                  onClick={() => setSelectedItem(null)}
+                  onClick={() => { setSelectedItem(null); setIsEditingItem(false); }}
                   className="text-zinc-600 hover:text-white ml-1 transition-colors text-lg leading-none"
                 >
                   ✕
@@ -975,15 +1043,23 @@ export function ContentPage() {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-5">
-              <p
-                className="text-sm text-zinc-300 leading-7 whitespace-pre-line"
-                dangerouslySetInnerHTML={{
-                  __html: selectedItem.body
-                    .replace(/\*\*(.*?)\*\*/g, "<strong class='text-white'>$1</strong>")
-                    .replace(/^# (.*)/gm, "<h1 class='text-white font-bold text-base mt-4 mb-2'>$1</h1>")
-                    .replace(/^## (.*)/gm, "<h2 class='text-white font-semibold text-sm mt-3 mb-1'>$2</h2>"),
-                }}
-              />
+              {isEditingItem ? (
+                <Textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  className="bg-[#0d0d0d] border-white/10 text-white text-sm resize-none min-h-[320px] focus:border-[#FF0033]/40"
+                />
+              ) : (
+                <p
+                  className="text-sm text-zinc-300 leading-7 whitespace-pre-line"
+                  dangerouslySetInnerHTML={{
+                    __html: selectedItem.body
+                      .replace(/\*\*(.*?)\*\*/g, "<strong class='text-white'>$1</strong>")
+                      .replace(/^# (.*)/gm, "<h1 class='text-white font-bold text-base mt-4 mb-2'>$1</h1>")
+                      .replace(/^## (.*)/gm, "<h2 class='text-white font-semibold text-sm mt-3 mb-1'>$2</h2>"),
+                  }}
+                />
+              )}
             </div>
 
             {/* Footer */}

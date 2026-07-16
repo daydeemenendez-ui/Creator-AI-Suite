@@ -39,6 +39,18 @@ export async function createPrompt(formData: FormData) {
   }
 }
 
+export async function updatePrompt(id: string, title: string, category: string | undefined, text: string) {
+  try {
+    const prompt = await prisma.prompt.update({
+      where: { id },
+      data: { title, text, ...(category ? { category } : {}) },
+    });
+    return { success: true, prompt };
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
 export async function deletePrompt(id: string) {
   try {
     await prisma.prompt.delete({ where: { id } });

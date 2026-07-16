@@ -19,6 +19,7 @@ import {
   Copy,
   Check,
   Download,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +84,10 @@ export function IdeasPage() {
   } | null>(null);
   const [copied, setCopied] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
+  const [editingIdea, setEditingIdea] = useState<Idea | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   async function fetchIdeas() {
     try {
@@ -132,6 +137,32 @@ export function IdeasPage() {
       setShowNewIdea(false);
     } finally {
       setSaving(false);
+    }
+  }
+
+  function openEditIdea(idea: Idea) {
+    setEditingIdea(idea);
+    setEditTitle(idea.title);
+    setEditDesc(idea.description ?? "");
+  }
+
+  async function handleUpdateIdea() {
+    if (!editingIdea || !editTitle.trim() || editSaving) return;
+    setEditSaving(true);
+    try {
+      const formData = new FormData();
+      formData.set("action", "update");
+      formData.set("id", editingIdea.id);
+      formData.set("title", editTitle.trim());
+      formData.set("description", editDesc.trim());
+      const res = await fetch("/api/ideas", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.success && data.idea) {
+        setIdeas((prev) => prev.map((i) => (i.id === data.idea.id ? { ...i, ...data.idea } : i)));
+      }
+      setEditingIdea(null);
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -332,6 +363,14 @@ export function IdeasPage() {
                       className="w-44 bg-[#1a1a1a] border-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
                     >
                       <DropdownMenuItem
+                        onClick={() => openEditIdea(idea)}
+                        className="text-sm hover:bg-white/[0.05] gap-2 cursor-pointer"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-white/[0.06]" />
+                      <DropdownMenuItem
                         onClick={() => handleConvert(idea, "guion")}
                         className="text-sm hover:bg-white/[0.05] gap-2 cursor-pointer"
                       >
@@ -500,6 +539,67 @@ export function IdeasPage() {
             {/* Body */}
             <div className="overflow-y-auto px-6 py-5 flex-1">
               <p className="text-sm text-zinc-300 leading-7 whitespace-pre-wrap">{conversionResult.content}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Idea Modal */}
+      {editingIdea && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setEditingIdea(null)} />
+          <div className="relative bg-[#161616] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4 shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2 tracking-tight">
+                <Pencil className="w-5 h-5 text-[#FF0033]" />
+                Editar idea
+              </h2>
+              <button onClick={() => setEditingIdea(null)} className="text-zinc-600 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-2">
+                  Título del video
+                </label>
+                <Input
+                  autoFocus
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleUpdateIdea()}
+                  className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 focus:border-[#FF0033]/40"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wider block mb-2">
+                  Descripción <span className="normal-case font-normal text-zinc-700">(opcional)</span>
+                </label>
+                <Textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  className="bg-[#111111] border-white/10 text-white placeholder:text-zinc-700 focus:border-[#FF0033]/40 resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="ghost"
+                onClick={() => setEditingIdea(null)}
+                className="flex-1 border border-white/10 text-zinc-500 hover:text-white hover:border-white/[0.18]"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleUpdateIdea}
+                disabled={!editTitle.trim() || editSaving}
+                className="flex-1 bg-[#FF0033] hover:bg-[#e8002e] text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_16px_rgba(255,0,51,0.2)] transition-all"
+              >
+                {editSaving ? "Guardando..." : "Guardar cambios"}
+              </Button>
             </div>
           </div>
         </div>
