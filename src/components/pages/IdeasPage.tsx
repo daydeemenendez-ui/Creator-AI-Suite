@@ -354,6 +354,12 @@ export function IdeasPage() {
                   >
                     <Star className="w-3.5 h-3.5" fill={idea.starred ? "currentColor" : "none"} />
                   </button>
+                  <button
+                    onClick={() => openEditIdea(idea)}
+                    className="text-zinc-700 hover:text-white transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                   <DropdownMenu>
                     <DropdownMenuTrigger className="text-zinc-700 hover:text-white transition-colors p-0.5 outline-none cursor-pointer">
                       <MoreHorizontal className="w-3.5 h-3.5" />

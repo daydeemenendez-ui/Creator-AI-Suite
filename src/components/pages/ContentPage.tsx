@@ -741,6 +741,19 @@ export function ContentPage() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setEditTitle(item.title);
+                          setEditBody(item.body);
+                          setIsEditingItem(true);
+                        }}
+                        className="h-7 w-7 p-0 text-zinc-600 hover:text-white border border-white/[0.08] hover:border-white/[0.14] transition-colors"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         disabled={deletingId === item.id}
                         onClick={() => handleDelete(item.id)}
                         className="h-7 w-7 p-0 text-zinc-600 hover:text-red-400 border border-white/[0.08] hover:border-red-500/30 transition-colors"

@@ -96,7 +96,6 @@ export function PromptsPage() {
 
   useEffect(() => {
     setShowChildForm(false);
-    setIsEditingPrompt(false);
     setEditingChildId(null);
   }, [selectedPromptId]);
 
@@ -274,6 +273,14 @@ export function PromptsPage() {
     setIsEditingPrompt(true);
   }
 
+  function openEditPromptFor(p: Prompt) {
+    setSelectedPromptId(p.id);
+    setEditTitle(p.title);
+    setEditCategory(p.category);
+    setEditText(p.text);
+    setIsEditingPrompt(true);
+  }
+
   async function handleSaveEditPrompt() {
     if (!selectedPrompt || !editTitle.trim() || !editText.trim() || editSaving) return;
     setEditSaving(true);
@@ -397,7 +404,7 @@ export function PromptsPage() {
           {filtered.map((prompt) => (
             <Card
               key={prompt.id}
-              onClick={() => setSelectedPromptId(prompt.id)}
+              onClick={() => { setSelectedPromptId(prompt.id); setIsEditingPrompt(false); }}
               className="bg-[#141414] border-white/[0.08] p-5 flex flex-col gap-3 hover:border-white/[0.14] hover:bg-[#181818] transition-all group cursor-pointer h-[260px]"
             >
               <div className="flex items-start justify-between">
@@ -413,6 +420,12 @@ export function PromptsPage() {
                     }`}
                   >
                     <Star className="w-4 h-4" fill={prompt.starred ? "currentColor" : "none"} />
+                  </button>
+                  <button
+                    onClick={() => openEditPromptFor(prompt)}
+                    className="text-zinc-700 hover:text-white transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(prompt.id)}
@@ -602,7 +615,7 @@ export function PromptsPage() {
       {selectedPrompt && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          onClick={() => setSelectedPromptId(null)}
+          onClick={() => { setSelectedPromptId(null); setIsEditingPrompt(false); }}
         >
           <div
             className="bg-[#141414] border border-white/[0.1] rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl"
@@ -701,7 +714,7 @@ export function PromptsPage() {
                   </>
                 )}
                 <button
-                  onClick={() => setSelectedPromptId(null)}
+                  onClick={() => { setSelectedPromptId(null); setIsEditingPrompt(false); }}
                   className="text-zinc-600 hover:text-white ml-1 transition-colors text-lg leading-none"
                 >
                   ✕
