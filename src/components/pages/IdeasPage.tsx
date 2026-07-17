@@ -88,6 +88,7 @@ export function IdeasPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   async function fetchIdeas() {
     try {
@@ -144,11 +145,13 @@ export function IdeasPage() {
     setEditingIdea(idea);
     setEditTitle(idea.title);
     setEditDesc(idea.description ?? "");
+    setEditError(null);
   }
 
   async function handleUpdateIdea() {
     if (!editingIdea || !editTitle.trim() || editSaving) return;
     setEditSaving(true);
+    setEditError(null);
     try {
       const formData = new FormData();
       formData.set("action", "update");
@@ -156,11 +159,15 @@ export function IdeasPage() {
       formData.set("title", editTitle.trim());
       formData.set("description", editDesc.trim());
       const res = await fetch("/api/ideas", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.success && data.idea) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success && data?.idea) {
         setIdeas((prev) => prev.map((i) => (i.id === data.idea.id ? { ...i, ...data.idea } : i)));
+        setEditingIdea(null);
+      } else {
+        setEditError(data?.error ? String(data.error) : "No se pudo guardar. Inténtalo de nuevo.");
       }
-      setEditingIdea(null);
+    } catch {
+      setEditError("Error de conexión. No se guardaron los cambios.");
     } finally {
       setEditSaving(false);
     }
@@ -590,6 +597,8 @@ export function IdeasPage() {
                 />
               </div>
             </div>
+
+            {editError && <p className="text-xs text-red-400 mt-3">{editError}</p>}
 
             <div className="flex gap-3 mt-6">
               <Button

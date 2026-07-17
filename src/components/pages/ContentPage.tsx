@@ -179,6 +179,7 @@ export function ContentPage() {
   const [editTitle, setEditTitle]         = useState("");
   const [editBody, setEditBody]           = useState("");
   const [editSaving, setEditSaving]       = useState(false);
+  const [editError, setEditError]         = useState<string | null>(null);
   const [showAddModal, setShowAddModal]   = useState(false);
   const [addType, setAddType]             = useState("IDEA");
   const [addTitle, setAddTitle]           = useState("");
@@ -366,12 +367,14 @@ export function ContentPage() {
     if (!selectedItem) return;
     setEditTitle(selectedItem.title);
     setEditBody(selectedItem.body);
+    setEditError(null);
     setIsEditingItem(true);
   }
 
   async function handleSaveEditItem() {
     if (!selectedItem || !editBody.trim() || editSaving) return;
     setEditSaving(true);
+    setEditError(null);
     try {
       const fd = new FormData();
       fd.append("action", "update_output");
@@ -379,12 +382,17 @@ export function ContentPage() {
       fd.append("title", editTitle.trim() || "Sin título");
       fd.append("body", editBody);
       const res = await fetch("/api/content", { method: "POST", body: fd });
-      if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
         const updated = { ...selectedItem, title: editTitle.trim() || "Sin título", body: editBody };
         setOutputs((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
         setSelectedItem(updated);
         setIsEditingItem(false);
+      } else {
+        setEditError(data?.error ? String(data.error) : "No se pudo guardar. Inténtalo de nuevo.");
       }
+    } catch {
+      setEditError("Error de conexión. No se guardaron los cambios.");
     } finally {
       setEditSaving(false);
     }
@@ -963,7 +971,8 @@ export function ContentPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-white/[0.07]">
+            <div className="flex flex-col border-b border-white/[0.07]">
+            <div className="flex items-center justify-between p-5">
               <div className="flex items-center gap-3 min-w-0">
                 <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20 flex-shrink-0">
                   {itemLabel(selectedItem)}
@@ -1052,6 +1061,10 @@ export function ContentPage() {
                   ✕
                 </button>
               </div>
+            </div>
+            {isEditingItem && editError && (
+              <div className="px-5 pb-3 text-xs text-red-400">{editError}</div>
+            )}
             </div>
 
             {/* Content */}

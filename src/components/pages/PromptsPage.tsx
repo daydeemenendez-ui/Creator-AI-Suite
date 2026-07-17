@@ -78,6 +78,7 @@ export function PromptsPage() {
   const [editCategory, setEditCategory] = useState("");
   const [editText, setEditText] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [editingChildId, setEditingChildId] = useState<string | null>(null);
   const [editChildTitle, setEditChildTitle] = useState("");
   const [editChildText, setEditChildText] = useState("");
@@ -270,6 +271,7 @@ export function PromptsPage() {
     setEditTitle(selectedPrompt.title);
     setEditCategory(selectedPrompt.category);
     setEditText(selectedPrompt.text);
+    setEditError(null);
     setIsEditingPrompt(true);
   }
 
@@ -284,6 +286,7 @@ export function PromptsPage() {
   async function handleSaveEditPrompt() {
     if (!selectedPrompt || !editTitle.trim() || !editText.trim() || editSaving) return;
     setEditSaving(true);
+    setEditError(null);
     try {
       const formData = new FormData();
       formData.set("action", "update");
@@ -292,11 +295,15 @@ export function PromptsPage() {
       formData.set("text", editText.trim());
       if (!selectedPrompt.parentId) formData.set("category", editCategory);
       const res = await fetch("/api/prompts", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.success && data.prompt) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success && data?.prompt) {
         setPrompts((prev) => prev.map((p) => (p.id === selectedPrompt.id ? { ...p, ...data.prompt } : p)));
+        setIsEditingPrompt(false);
+      } else {
+        setEditError(data?.error ? String(data.error) : "No se pudo guardar. Inténtalo de nuevo.");
       }
-      setIsEditingPrompt(false);
+    } catch {
+      setEditError("Error de conexión. No se guardaron los cambios.");
     } finally {
       setEditSaving(false);
     }
@@ -622,7 +629,8 @@ export function PromptsPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-white/[0.07]">
+            <div className="flex flex-col border-b border-white/[0.07]">
+            <div className="flex items-center justify-between p-5">
               <div className="flex items-center gap-3 min-w-0">
                 {!isEditingPrompt && (
                   <Badge className="text-[10px] bg-[#FF0033]/10 text-[#FF0033] border-[#FF0033]/20 flex-shrink-0">
@@ -720,6 +728,10 @@ export function PromptsPage() {
                   ✕
                 </button>
               </div>
+            </div>
+            {isEditingPrompt && editError && (
+              <div className="px-5 pb-3 text-xs text-red-400">{editError}</div>
+            )}
             </div>
 
             {/* Content */}
